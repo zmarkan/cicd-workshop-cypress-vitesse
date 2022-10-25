@@ -32,7 +32,7 @@ jobs:
       - node/install-packages
       - run:
           command: |
-            pnpm run build
+            npm run build
   lint:
     docker: 
       - image: cimg/node:16.16.0
@@ -41,7 +41,7 @@ jobs:
       - node/install-packages
       - run:
           command: |
-            pnpm run lint
+            npm run lint
   
   typecheck:
     docker: 
@@ -51,7 +51,7 @@ jobs:
       - node/install-packages
       - run:
           command: |
-            pnpm run typecheck
+            npm run typecheck
 
 
   test-unit:
@@ -62,7 +62,7 @@ jobs:
       - node/install-packages
       - run:
           command: |
-            pnpm run test:unit
+            npm run test:unit
   test-e2e:
     docker: 
       - image: cimg/node:16.16.0
@@ -71,7 +71,7 @@ jobs:
       - node/install-packages
       - run:
           command: |
-            pnpm run test:e2e
+            npm run test:e2e
   
   test-component:
     docker: 
@@ -81,7 +81,7 @@ jobs:
       - node/install-packages
       - run:
           command: |
-            pnpm run test:unit
+            npm run test:unit
 
 
   
@@ -106,7 +106,7 @@ jobs:
       - run: 
           name: Run tests
           command: |
-            pnpm run test
+            npm run test
       # - run:
       #     name: Copy tests results for storing
       #     command: |
