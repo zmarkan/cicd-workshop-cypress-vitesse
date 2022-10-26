@@ -52,16 +52,7 @@ jobs:
       - run:
           command: |
             npm run test:unit
-  test-e2e:
-    docker: 
-      - image: cimg/node:16.16.0
-    steps:
-      - checkout
-      - node/install-packages
-      - run:
-          command: |
-            npm run test:e2e
-  
+ 
   test-component:
     docker: 
       - image: cimg/node:16.16.0
@@ -72,7 +63,16 @@ jobs:
           command: |
             npm run test:unit
 
-
+  test-e2e:
+      docker: 
+        - image: cimg/node:16.16.0
+      steps:
+        - checkout
+        - node/install-packages
+        - run:
+            command: |
+              npm run test:e2e
+    
   
 
   build_and_test:
@@ -276,6 +276,7 @@ workflows:
         - typecheck
         - test-component
         # - test-e2e
+        - cypress/run
         - dependency_vulnerability_scan:
             context:
               - cicd-workshop
