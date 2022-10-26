@@ -5,7 +5,7 @@ orbs:
   docker: circleci/docker@2.1.1
   snyk: snyk/snyk@1.2.3
   terraform: circleci/terraform@3.0.0
-
+  cypress: cypress-io/cypress@1.9.0
 
 commands:
   install_doctl:
@@ -43,17 +43,6 @@ jobs:
           command: |
             npm run lint
   
-  typecheck:
-    docker: 
-      - image: cimg/node:16.16.0
-    steps:
-      - checkout
-      - node/install-packages
-      - run:
-          command: |
-            npm run typecheck
-
-
   test-unit:
     docker: 
       - image: cimg/node:16.16.0
@@ -286,7 +275,7 @@ workflows:
         - test-unit
         - typecheck
         - test-component
-        - test-e2e
+        # - test-e2e
         - dependency_vulnerability_scan:
             context:
               - cicd-workshop
