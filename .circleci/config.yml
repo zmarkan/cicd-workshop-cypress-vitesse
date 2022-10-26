@@ -284,7 +284,9 @@ workflows:
         - dependency_vulnerability_scan:
             context:
               - cicd-workshop
-        - build_docker_image
+        - build_docker_image:
+            context:
+              - cicd-workshop
         # - provision-test # depending on image built??
         # - deploy-test # Deploy to test environment
         # - destroy-test 
