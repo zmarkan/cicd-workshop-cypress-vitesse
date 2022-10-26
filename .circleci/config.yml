@@ -33,12 +33,16 @@ jobs:
       - run:
           command: |
             npm run build
+      - run:
+          name: Compress Artifacts
+          command: |
+            zip -r dist.zip dist/
       - store_artifacts:
           path: dist
       - persist_to_workspace:
           root: .
           paths:
-            - dist/
+            - dist.zip
   lint:
     docker: 
       - image: cimg/node:16.16.0
