@@ -33,6 +33,12 @@ jobs:
       - run:
           command: |
             npm run build
+      - store_artifacts:
+          path: dist
+      - persist_to_workspace:
+          root: .
+          paths:
+            - dist/
   lint:
     docker: 
       - image: cimg/node:16.16.0
@@ -86,12 +92,6 @@ jobs:
     steps:
       - checkout
       - node/install-packages
-      # - run:
-      #     name: Run tests
-      #     command: |
-      #       echo $(circleci tests glob "test/**/*.test.js")
-      #       circleci tests glob "test/**/*.test.js" | circleci tests split |
-      #       xargs npm run test-ci
       - run: 
           name: Run tests
           command: |
@@ -273,12 +273,22 @@ workflows:
         - build
         - lint
         - test-unit
-        - test-component
-        # - test-e2e
-        - cypress/run
+        - test-component # same as above - we might use cypress here?
+        # - test-e2e -> this uses cypress
+        # - cypress/run:  -> this is the orb way to use cypress, failing at the moment
+        #     alias: e2e tests
         - dependency_vulnerability_scan:
             context:
               - cicd-workshop
+        - build-image
+        - provision-test # depending on image built??
+        - deploy-test # Deploy to test environment
+        - destroy-test 
+        - approve-prod # Depending on test only main branch
+        - deploy-prod # Depending on 
+        - approve-destroy
+        - destroy-prod
+
         
         # - build_docker_image:
         #     context:
