@@ -280,14 +280,14 @@ workflows:
         - dependency_vulnerability_scan:
             context:
               - cicd-workshop
-        - build-image
-        - provision-test # depending on image built??
-        - deploy-test # Deploy to test environment
-        - destroy-test 
-        - approve-prod # Depending on test only main branch
-        - deploy-prod # Depending on 
-        - approve-destroy
-        - destroy-prod
+        # - build-image
+        # - provision-test # depending on image built??
+        # - deploy-test # Deploy to test environment
+        # - destroy-test 
+        # - approve-prod # Depending on test only main branch
+        # - deploy-prod # Depending on 
+        # - approve-destroy
+        # - destroy-prod
 
         
         # - build_docker_image:
