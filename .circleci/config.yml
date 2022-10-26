@@ -273,7 +273,6 @@ workflows:
         - build
         - lint
         - test-unit
-        - typecheck
         - test-component
         # - test-e2e
         - cypress/run
