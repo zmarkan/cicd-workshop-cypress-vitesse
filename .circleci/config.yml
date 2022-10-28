@@ -144,6 +144,10 @@ jobs:
           monitor-on-build: false
 
   create_do_k8s_cluster:
+    parameters:
+      env: 
+        type: string
+        default: test
     docker:
       - image: cimg/base:stable
     steps:
@@ -162,7 +166,7 @@ jobs:
       - run:
           name: Create K8s Cluster on DigitalOcean
           command: |
-            export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}
+            export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}-<< parameters.env >>
             export DO_K8S_SLUG_VER="$(doctl kubernetes options versions \
               -o json -t $DIGITALOCEAN_TOKEN | jq -r '.[0] | .slug')"
 
@@ -295,7 +299,29 @@ workflows:
         - build_docker_image:
             context:
               - cicd-workshop
-        - 
+        - create_do_k8s_cluster:
+            context:
+              - cicd-workshop
+            env: test
+            requires:
+              - build
+              - lint
+              - test-unit
+              - test-component
+              - dependency_vulnerability_scan
+              - build_docker_image
+        - deploy_to_k8s:
+            env: test
+            context:
+              - cicd-workshop
+            requires:
+              - create_do_k8s_cluster
+        - destroy_k8s_cluster:
+            env: test
+            context:
+              - cicd-workshop
+            requires:
+              - deploy_to_k8s
         # - provision-test # depending on image built??
         # - deploy-test # Deploy to test environment
         # - destroy-test 
