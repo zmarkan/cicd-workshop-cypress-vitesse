@@ -326,7 +326,7 @@ workflows:
             requires:
               - deploy_test
         # smoke test???
-        - approve_prod_destroy:
+        - approve_prod_deploy:
             type: approval
             requires:
               - destroy_test_cluster
@@ -334,7 +334,7 @@ workflows:
             name: create_prod_cluster
             env: prod
             requires:
-              - approve_prod_destroy
+              - approve_prod_deploy
             context:
               - cicd-workshop
         - deploy_to_k8s:
