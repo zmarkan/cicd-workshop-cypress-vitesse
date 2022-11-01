@@ -300,8 +300,7 @@ workflows:
             context:
               - cicd-workshop
         - create_do_k8s_cluster:
-            context:
-              - cicd-workshop
+            name: create_test_cluster
             env: test
             requires:
               - build
@@ -310,19 +309,52 @@ workflows:
               - test-component
               - dependency_vulnerability_scan
               - build_docker_image
+            context:
+              - cicd-workshop
         - deploy_to_k8s:
+            name: deploy_test
             env: test
             context:
               - cicd-workshop
             requires:
-              - create_do_k8s_cluster
+              - create_test_cluster
         - destroy_k8s_cluster:
+            name: destroy_test_cluster
             env: test
             context:
               - cicd-workshop
             requires:
-              - deploy_to_k8s
-        # - provision-test # depending on image built??
+              - deploy_test
+        # smoke test???
+        - approve_prod_destroy:
+            type: approval
+            requires:
+              - destroy_test_cluster
+        - create_do_k8s_cluster:
+            name: create_prod_cluster
+            env: prod
+            requires:
+              - approve_prod_destroy
+            context:
+              - cicd-workshop
+        - deploy_to_k8s:
+            name: deploy_prod
+            env: prod
+            context:
+              - cicd-workshop
+            requires:
+              - create_prod_cluster
+        - approve_prod_destroy:
+            type: approval
+            requires:
+              - deploy_prod
+        - destroy_k8s_cluster:
+            name: destroy_prod_cluster
+            env: prod
+            context:
+              - cicd-workshop
+            requires:
+              - approve_prod_destroy
         # - deploy-test # Deploy to test environment
         # - destroy-test 
         # - approve-prod # Depending on test only main branch
