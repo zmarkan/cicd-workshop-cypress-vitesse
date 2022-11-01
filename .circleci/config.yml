@@ -201,7 +201,7 @@ jobs:
           command: |
             export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}-<< parameters.env >>
             export TAG=0.1.<< pipeline.number >>
-            export DOCKER_IMAGE="${DOCKER_LOGIN}/${CIRCLE_PROJECT_REPONAME}-<< parameters.env >>:$TAG"
+            export DOCKER_IMAGE="${DOCKER_LOGIN}/${CIRCLE_PROJECT_REPONAME}:$TAG"
             doctl auth init -t $DIGITALOCEAN_TOKEN
             doctl kubernetes cluster kubeconfig save $CLUSTER_NAME
 
@@ -258,7 +258,7 @@ jobs:
           command: |
             export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}-<< parameters.env >>
             export TAG=0.1.<< pipeline.number >>
-            export DOCKER_IMAGE="${DOCKER_LOGIN}/${CIRCLE_PROJECT_REPONAME}-<< parameters.env >>:$TAG"          
+            export DOCKER_IMAGE="${DOCKER_LOGIN}/${CIRCLE_PROJECT_REPONAME}:$TAG"          
             doctl auth init -t $DIGITALOCEAN_TOKEN
             doctl kubernetes cluster kubeconfig save $CLUSTER_NAME
 
