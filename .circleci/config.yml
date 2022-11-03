@@ -3,9 +3,9 @@ version: 2.1
 orbs:
   node: circleci/node@5.0.2
   docker: circleci/docker@2.1.1
-  snyk: snyk/snyk@1.2.3
+  snyk: snyk/snyk@1.4.0
   terraform: circleci/terraform@3.0.0
-  cypress: cypress-io/cypress@2.2.0
+  # cypress: cypress-io/cypress@2.2.0
 
 commands:
   install_doctl:
@@ -82,42 +82,7 @@ jobs:
         - run:
             command: |
               npm run test:e2e
-    
   
-
-  build_and_test:
-    parameters:
-      node_version:
-        type: string
-        default: 16.16.0
-    docker:
-      - image: cimg/node:16.16.0
-    parallelism: 4
-    steps:
-      - checkout
-      - node/install-packages
-      - run: 
-          name: Run tests
-          command: |
-            npm run test
-      # - run:
-      #     name: Copy tests results for storing
-      #     command: |
-      #       mkdir test-results
-      #       cp test-results.xml test-results/
-      #     when: always
-      # - run:
-      #     name: Process test report
-      #     command: |
-      #       # Convert absolute paths to relative to support splitting tests by timing
-      #       if [ -e test-results.xml ]; then
-      #         sed -i "s|`pwd`/||g" test-results.xml
-      #       fi
-      # - store_test_results:
-      #     path: test-results
-      # - store_artifacts:
-      #     path: test-results
-
   build_docker_image:
       docker:
         - image: cimg/base:stable
@@ -318,14 +283,16 @@ workflows:
               - cicd-workshop
             requires:
               - create_test_cluster
+        - smoketest_k8s_deployment:
+            requires:
+              - deploy_test
         - destroy_k8s_cluster:
             name: destroy_test_cluster
             env: test
             context:
               - cicd-workshop
             requires:
-              - deploy_test
-        # smoke test???
+              - smoketest_k8s_deployment
         - approve_prod_deploy:
             type: approval
             requires:
@@ -355,49 +322,5 @@ workflows:
               - cicd-workshop
             requires:
               - approve_prod_destroy
-        # - deploy-test # Deploy to test environment
-        # - destroy-test 
-        # - approve-prod # Depending on test only main branch
-        # - deploy-prod # Depending on 
-        # - approve-destroy
-        # - destroy-prod
 
-        
-        # - build_docker_image:
-        #     context:
-        #       - cicd-workshop
-        #     filters:
-        #       tags:
-        #         only: /^v.*/
-        # - create_do_k8s_cluster:
-        #     requires:
-        #       - dependency_vulnerability_scan
-        #       - build_docker_image
-        #       - build_and_test
-        #     context:
-        #       - cicd-workshop
-        #     filters:
-        #       branches:
-        #         only: main
-        #       tags:
-        #         only: /^v.*/
-        # - deploy_to_k8s:
-        #     requires:
-        #       - create_do_k8s_cluster
-        #     context:
-        #       - cicd-workshop
-        # - smoketest_k8s_deployment:
-        #     requires:
-        #       - deploy_to_k8s
-        # - approve_destroy:
-        #     type: approval
-        #     requires:
-        #       - smoketest_k8s_deployment
-        # - destroy_k8s_cluster:
-        #     requires:
-        #       - approve_destroy
-        #     context:
-        #       - cicd-workshop
-
-
-# VS Code Extension Version: 1.0.0
+# VS Code Extension Version: 1.0.1
