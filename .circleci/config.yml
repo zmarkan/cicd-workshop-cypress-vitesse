@@ -297,6 +297,10 @@ workflows:
             type: approval
             requires:
               - destroy_test_cluster
+            filters:
+              branches:
+                only:
+                 - main
         - create_do_k8s_cluster:
             name: create_prod_cluster
             env: prod
@@ -323,4 +327,4 @@ workflows:
             requires:
               - approve_prod_destroy
 
-# VS Code Extension Version: 1.0.1
+# VS Code Extension Version: 1.0.2
