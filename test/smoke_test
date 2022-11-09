@@ -7,6 +7,8 @@ TIME_OUT_COUNT=0
 SMOKE_IP=$1
 SMOKE_URL="http://$SMOKE_IP"
 
+echo "${SMOKE_URL}"
+
 while true
 do
   STATUS=$(curl -s -o /dev/null -w '%{http_code}' $SMOKE_URL)
