@@ -1,27 +1,17 @@
-# CI/CD Workshop with CircleCI
+# CircleCI and Cypress Workshop
 
 ## Prerequisites
 
 Knowledge of Git version control system
 GitHub account - where the code is hosted
-A code editor - you can use GitPod ...
+A code editor - Visual Studio Code is preferred but you can use anything
+
 
 ## Chapter 0 - The Prologue and Prep
 
 Fork this project! You will need a GitHub account.
 
-This project can run on your machine if you have the correct dependencies installed (Git, Terraform, DigitalOcean CLI, Node.js), or it can also run in a cloud based environment using Gitpod (we recommend Gitpod for best experience).
-
-To open this in Gitpod, copy your fork's GitHub URL, and combine it with this Gitpod prefix - `https://gitpod.io/#` and open it in a new tab.
-
-The full URL should look something like this: `https://gitpod.io/#/https://github.com/YOUR_GITHUB_USERNAME/cicd-workshop`.
-
-
-This lets you spin up an environment with all the dependencies preinstalled, remotely connect to it, and work on it as it was on your machine. This is much faster, believe us, we measured it with science. 
-
-### If NOT using Gitpod
-
-If you are using Gitpod you're good, everything you need should have been installed already.
+This project can run on your machine if you have the correct dependencies installed (Git, Terraform, DigitalOcean CLI, Node.js, and Cypress)
 
 The commands used here are mostly using Bash, Git, and Python 3 - make sure they are installed and available. If using Windows, the commands might be different than the ones listed here.
 
