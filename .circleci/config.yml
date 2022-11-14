@@ -6,7 +6,9 @@ commands:
   install_and_cache_node_dependencies:
     steps:
       - restore_cache:
-            key: v2-deps-{{ checksum "package-lock.json" }}
+            keys: 
+              - v2-deps-{{ checksum "package-lock.json" }}
+              - v2-deps-
       - run:
           name: Install deps
           command: npm install
