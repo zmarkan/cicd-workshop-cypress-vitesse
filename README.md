@@ -156,10 +156,62 @@ jobs:
       - run:
           command: |
             npm run lint
+      - run:
+          command: |
             npm run test
+      - run:
+          command: |
             npm run build
 ```
 
+That way we have a nicer overview of the steps, but we can split them further, by splitting testing and linting into parallel jobs instead. We need to define the jobs and their steps, and add them to the workflow:
+
+```yaml
+jobs:
+  build:
+    docker: 
+      - image: cimg/node:16.16.0
+    steps:
+      - checkout
+      - run:
+          command: |
+            npm install
+      - run:
+          command: |
+            npm run build
+  
+  test:
+    docker: 
+      - image: cimg/node:16.16.0
+    steps:
+      - checkout
+      - run:
+          command: |
+            npm install
+      - run:
+          command: |
+            npm run test
+
+  lint:
+    docker: 
+      - image: cimg/node:16.16.0
+    steps:
+      - checkout
+      - run:
+          command: |
+            npm install
+      - run:
+          command: |
+            npm run lint
+            
+workflows:
+  build_test_deploy:
+      jobs:
+        - build      
+        - test
+        - lint
+
+```
 
 - Report test results to CircleCI. Change `test-ci` job in `package.json` to export test results in JUnit format.
 
