@@ -32,6 +32,9 @@ jobs:
       - checkout
       - run:
           command: |
+            npm install
+      - run:
+          command: |
             npm run lint
             
 workflows:
