@@ -1,4 +1,4 @@
 {
   "extends": "@antfu",
-  "ignorePatterns": ["scripts/**"]
+  "ignorePatterns": ["scripts/**", "*.md"]
 }
