@@ -569,34 +569,33 @@ Add a job to create a Terraform cluster
 
 ```yaml
 create_do_k8s_cluster:
-  docker:
-    - image: cimg/node:16.16.0
-  steps:
-    - checkout
-    - install_doctl:
-        version: 1.78.0
-    - run:
-        name: Create .terraformrc file locally
-        command: echo "credentials \"app.terraform.io\" {token = \"$TF_CLOUD_KEY\"}" > $HOME/.terraformrc
-    - terraform/install:
-        terraform_version: 1.0.6
-        arch: amd64
-        os: linux
-    - terraform/init:
-        path: ./terraform/do_create_k8s
-    - run:
-        name: Create K8s Cluster on DigitalOcean
-        command: |
-          export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}
-          export DO_K8S_SLUG_VER="$(doctl kubernetes options versions \
-            -o json -t $DIGITAL_OCEAN_TOKEN | jq -r '.[0] | .slug')"
+    docker:
+      - image: cimg/node:16.16.0
+    steps:
+      - checkout
+      - install_doctl:
+          version: 1.78.0
+      - run:
+          name: Create .terraformrc file locally
+          command: echo "credentials \"app.terraform.io\" {token = \"$TF_CLOUD_KEY\"}" > $HOME/.terraformrc
+      - terraform/install:
+          terraform_version: 1.0.6
+          arch: amd64
+          os: linux
+      - terraform/init:
+          path: ./terraform/do_create_k8s
+      - run:
+          name: Create K8s Cluster on DigitalOcean
+          command: |
+            export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}
+            export DO_K8S_SLUG_VER="$(doctl kubernetes options versions \
+              -o json -t $DIGITALOCEAN_TOKEN | jq -r '.[0] | .slug')"
 
-          terraform -chdir=./terraform/do_create_k8s apply \
-            -var do_token=$DIGITAL_OCEAN_TOKEN \
-            -var cluster_name=$CLUSTER_NAME \
-            -var do_k8s_slug_ver=$DO_K8S_SLUG_VER \
-            -auto-approve
-
+            terraform -chdir=./terraform/do_create_k8s apply \
+              -var do_token=$DIGITALOCEAN_TOKEN \
+              -var cluster_name=$CLUSTER_NAME \
+              -var do_k8s_slug_ver=$DO_K8S_SLUG_VER \
+              -auto-approve
 ```
 
 Add the new job to the workflow. Add `requires` statements to only start deployment when all prior steps have completed
