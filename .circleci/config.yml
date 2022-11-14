@@ -135,7 +135,8 @@ workflows:
             context:
               - cicd-workshop
         - create_do_k8s_cluster:
-            context: cicd-workshop
+            context: 
+              - cicd-workshop
             requires:
               - build
               - test

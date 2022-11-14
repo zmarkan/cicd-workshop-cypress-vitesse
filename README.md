@@ -603,22 +603,25 @@ Add the new job to the workflow. Add `requires` statements to only start deploym
 
 ```yaml
 workflows:
-  test_scan_deploy:
-    jobs:
-      - build_and_test
-      - dependency_vulnerability_scan:
-          context:
-            - cicd-workshop
-      - build_docker_image:
-          context:
-            - cicd-workshop
-      - create_do_k8s_cluster:
-          requires:
-            - dependency_vulnerability_scan
-            - build_docker_image
-            - build_and_test
-          context:
-            - cicd-workshop
+  build_test_deploy:
+      jobs:
+        - build      
+        - test
+        - lint
+        - build_docker_image:
+            context:
+              - cicd-workshop
+        - dependency_vulnerability_scan:
+            context:
+              - cicd-workshop
+        - create_do_k8s_cluster:
+            context: cicd-workshop
+            requires:
+              - build
+              - test
+              - lint
+              - build_docker_image
+              - dependency_vulnerability_scan
 
 ```
 
