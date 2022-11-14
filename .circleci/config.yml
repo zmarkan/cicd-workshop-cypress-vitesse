@@ -66,6 +66,8 @@ workflows:
         - build      
         - test
         - lint
-        - build_docker_image
+        - build_docker_image:
+            context:
+              - cicd-workshop
 
 # VS Code Extension Version: 1.0.2
