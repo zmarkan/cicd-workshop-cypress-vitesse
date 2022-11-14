@@ -80,6 +80,9 @@ workflows:
         - build_docker_image:
             context:
               - cicd-workshop
+        - dependency_vulnerability_scan:
+            context:
+              - cicd-workshop
 
 
 # VS Code Extension Version: 1.0.2
