@@ -736,7 +736,7 @@ smoketest_k8s_deployment:
 
 ```yaml
 workflows:
-  test_scan_deploy:
+  build_test_deploy:
     jobs:
       ...
       - create_do_k8s_cluster:
@@ -815,50 +815,31 @@ destroy_k8s_cluster:
 
 This runs two Terraform steps - with the, running `apply -destroy` which basically undoes them. First the deployment, and then the underlying infrastructure.
 
-- Now add the destroy job to the workflow, alongside a new `approve_destroy` job:
+- Now add the destroy job to the workflow.
+
 
 ```yaml
 workflows:
-  test_scan_deploy:
+  build_test_deploy:
     jobs:
-      - build_and_test
-      - dependency_vulnerability_scan:
-          context:
-            - cicd-workshop
-      - build_docker_image:
-          context:
-            - cicd-workshop
-      - create_do_k8s_cluster:
-          context:
-            - cicd-workshop
-      - deploy_to_k8s:
-          requires:
-            - dependency_vulnerability_scan
-            - build_docker_image
-            - build_and_test
-            - create_do_k8s_cluster
-          context:
-            - cicd-workshop
-      - smoketest_k8s_deployment:
-          requires:
-            - deploy_to_k8s
-      - approve_destroy:
-          type: approval
-          requires:
-            - smoketest_k8s_deployment
-      - destroy_k8s_cluster:
-          requires:
-            - approve_destroy
-          context:
-            - cicd-workshop
+    ...
+     - deploy_to_k8s:
+            requires:
+              - create_do_k8s_cluster
+            context:
+              - cicd-workshop
+        - smoketest_k8s_deployment:
+            requires:
+              - deploy_to_k8s
+        - destroy_k8s_cluster:
+            requires:
+              - smoketest_k8s_deployment
 ```
-
-The `approve_destroy` had a special type set - `approval` which means we don't have to define it and it will give us the option to manually confirm we want to continue executing the workflow.
 
 🎉 Congratulations! You have reached to the end of chapter 2 with a fully fledged Kubernetes provisioning and deployment in a CI/CD pipeline!
 
 
-## Chapter 3 - Advanced CI/CD 
+## Chapter 3 - Multiple environments 
 
 Let's pretend a few months have passed, you have been working on your application for a while and noticed the tests now run a lot longer than they used to! In this chapter we will be focusing on improving the pipeline itself.
 
