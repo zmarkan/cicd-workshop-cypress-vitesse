@@ -210,6 +210,54 @@ workflows:
         - build      
         - test
         - lint
+```
+
+- Now we can shave off some time by caching our dependencies so they don't get downloaded each time. Create a command `install_and_cache_node_dependencies` and use it instead of the usual `npm install` command in the jobs:
+
+```yaml
+commands:
+  install_and_cache_node_dependencies:
+    steps:
+      - restore_cache:
+            key: v1-deps-{{ checksum "package-lock.json" }}
+      - run:
+          name: Install deps
+          command: npm install
+      - save_cache:
+          key: v1-deps-{{ checksum "package-lock.json" }}
+          paths: 
+              - node_modules   
+
+jobs:
+  build:
+    docker: 
+      - image: cimg/node:16.16.0
+    steps:
+      - checkout
+      - install_and_cache_node_dependencies
+      - run:
+          command: |
+            npm run build
+  
+  test:
+    docker: 
+      - image: cimg/node:16.16.0
+    steps:
+      - checkout
+      - install_and_cache_node_dependencies
+      - run:
+          command: |
+            npm run test
+
+  lint:
+    docker: 
+      - image: cimg/node:16.16.0
+    steps:
+      - checkout
+      - install_and_cache_node_dependencies
+      - run:
+          command: |
+            npm run lint
 
 ```
 
