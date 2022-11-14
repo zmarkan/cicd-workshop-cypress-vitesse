@@ -360,10 +360,12 @@ You should have all the required accounts for third party services already, and 
 - In app.circleci.com click on the Organization settings. 
 - Copy the Organization ID value and insert it in `credentials.toml`
 
-Make sure that you have all the required service variables set in `credentials.toml`, and then run the script:
+Make sure that you have all the required service variables set in `credentials.toml`, and then run the script (but make sure you have the toml dependency)
 
 ```bash
-python scripts/prepare_contexts.py
+cp scripts/util/credentials.sample.toml credentials.toml
+pip3 install toml
+python3 scripts/prepare_contexts.py
 ```
 
 Most of the things you do in CircleCI web interface can also be done with the API. You can inspect the newly created context and secrets by going to your organization settings. Now we can create a new job to build and deploy a Docker image.
@@ -375,7 +377,7 @@ Most of the things you do in CircleCI web interface can also be done with the AP
 ```yaml
 orbs:
   node: circleci/node@5.0.2
-  docker: circleci/docker@2.1.1
+  docker: circleci/docker@2.1.4
 ```
 
 - Add a new job:
@@ -399,14 +401,16 @@ build_docker_image:
         tag: 0.1.<< pipeline.number >>
 ```
 
-In the workflow, add the deployment job:
+In the workflow, add the new job:
 
 ```yaml
 workflows:
-  test_scan_deploy:
-    jobs:
-      - build_and_test
-      - build_docker_image
+  build_test_deploy:
+      jobs:
+        - build      
+        - test
+        - lint
+        - build_docker_image
 
 ```
 

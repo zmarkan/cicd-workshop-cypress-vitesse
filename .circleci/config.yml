@@ -2,6 +2,7 @@ version: 2.1
 
 orbs:
   node: circleci/node@5.0.3
+  docker: circleci/docker@2.1.4
 
 jobs:
   build:
@@ -43,6 +44,21 @@ jobs:
       - run:
           command: |
             npm run lint
+  
+  build_docker_image:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - setup_remote_docker
+      - docker/check
+      - docker/build:
+          image: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME
+          tag: 0.1.<< pipeline.number >>
+      - docker/push:
+          image: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME
+          tag: 0.1.<< pipeline.number >>
+
             
 workflows:
   build_test_deploy:
@@ -50,5 +66,6 @@ workflows:
         - build      
         - test
         - lint
+        - build_docker_image
 
 # VS Code Extension Version: 1.0.2
