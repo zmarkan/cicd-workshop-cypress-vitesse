@@ -253,6 +253,7 @@ workflows:
         - destroy_k8s_cluster:
             requires:
               - smoketest_k8s_deployment
+            context: cicd-workshop
 
 
 
