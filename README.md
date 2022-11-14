@@ -1133,6 +1133,8 @@ workflows:
 
  Congratulations, you have completed the CircleCI part of the workshop! Now let's learn about Cypress!
 
+ You can jump to this latest stage by running `./scripts/chapter_3.sh`
+
 
 
 
