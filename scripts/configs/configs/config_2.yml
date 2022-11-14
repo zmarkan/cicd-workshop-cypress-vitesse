@@ -1,35 +1,77 @@
 version: 2.1
 
+orbs:
+  node: circleci/node@5.0.3
+  docker: circleci/docker@2.1.4
+
 jobs:
-  build-and-test:
-    docker:
-      - image: cimg/node:16.14.0
+  build:
+    docker: 
+      - image: cimg/node:16.16.0
     steps:
       - checkout
-      - restore_cache:
-          key: v1-deps-{{ checksum "package-lock.json" }}
+      - node/install-packages
       - run:
-          name: Install deps
-          command: npm install
-      - save_cache:
-          key: v1-deps-{{ checksum "package-lock.json" }}
-          paths: 
-            - node_modules   
+          command: |
+            npm run build
+  
+  test:
+    docker: 
+      - image: cimg/node:16.16.0
+    steps:
+      - checkout
+      - node/install-packages
       - run:
           name: Run tests
-          command: npm run test-ci
+          command: npm run test-ci-reporting
       - run:
           name: Copy tests results for storing
           command: |
-            mkdir test-results
+            mkdir test-results/
             cp test-results.xml test-results/
           when: always
       - store_test_results:
           path: test-results
       - store_artifacts:
           path: test-results
-      
+
+  lint:
+    docker: 
+      - image: cimg/node:16.16.0
+    steps:
+      - checkout
+      - node/install-packages
+      - run:
+          command: |
+            npm run lint
+  
+  build_docker_image:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - setup_remote_docker
+      - docker/check
+      - docker/build:
+          image: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME
+          tag: 0.1.<< pipeline.number >>
+      - docker/push:
+          image: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME
+          tag: 0.1.<< pipeline.number >>
+
+            
 workflows:
-  run-tests:
-    jobs:
-      - build-and-test
+  build_test_deploy:
+      jobs:
+        - build      
+        - test
+        - lint
+        - build_docker_image:
+            context:
+              - cicd-workshop
+            requires:
+              - build
+              - test
+              - lint
+
+# VS Code Extension Version: 1.0.2

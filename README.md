@@ -419,27 +419,37 @@ Add the context we created earlier:
 
 ```yaml
 workflows:
-  test_scan_deploy:
-    jobs:
-      - build_and_test
-      - build_docker_image:
-          context:
-            - cicd-workshop
+  build_test_deploy:
+      jobs:
+        - build      
+        - test
+        - lint
+        - build_docker_image:
+            context:
+              - cicd-workshop
 ```
+
+Now let's set up a dependency scan with Snyk. They havce 
 
 This runs both jobs in parallel. We might want to run them sequentially instead, so Docker deployment only happens when the tests have passed. Do this by adding a `requires` stanza to the `build_docker_image` job:
 
 ```yaml
 workflows:
-  test_scan_deploy:
-    jobs:
-      - build_and_test
-      - build_docker_image:
-          context:
-            - cicd-workshop
-          requires:
-            - build_and_test
+  build_test_deploy:
+      jobs:
+        - build      
+        - test
+        - lint
+        - build_docker_image:
+            context:
+              - cicd-workshop
+            requires:
+              - build
+              - test
+              - lint
 ```
+
+This i
 
 🎉 Congratulations, you've completed the first part of the exercise!
 
@@ -457,9 +467,9 @@ If you got lost in the previous chapter, the initial state of the configuration 
 
 ```yaml
 orbs:
-  node: circleci/node@5.0.2
-  docker: circleci/docker@2.1.1
-  snyk: snyk/snyk@1.2.3
+  node: circleci/node@5.0.3
+  docker: circleci/docker@2.1.4
+  snyk: snyk/snyk@1.4.0
 ```
 
 Note: if you push this, you are likely to see the pipeline fail. This is because the Snyk orb comes from a third-party, developed by Snyk themselves. This is a security feature that you can overcome by opting in to partner and community orbs in your organisation settings - security.
