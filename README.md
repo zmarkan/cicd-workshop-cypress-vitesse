@@ -429,7 +429,81 @@ workflows:
               - cicd-workshop
 ```
 
-Now let's set up a dependency scan with Snyk. They havce 
+This will now build and push your Docker image to Docker hub. Last thing to do in this chapter is to set up automated security scanning tool.
+
+### Integrate automated dependency vulnerability scan
+
+- First let's integrate a security scanning tool in our process. We will use Snyk, for which you should already have the account created and environment variable set.
+
+- Add Snyk orb: 
+
+```yaml
+orbs:
+  node: circleci/node@5.0.3
+  docker: circleci/docker@2.1.4
+  snyk: snyk/snyk@1.4.0
+```
+
+Note: if you push this, you are likely to see the pipeline fail. This is because the Snyk orb comes from a third-party, developed by Snyk themselves. This is a security feature that you can overcome by opting in to partner and community orbs in your organisation settings - security.
+
+- Add dependency vulnerability scan job:
+
+```yaml
+jobs:
+...
+dependency_vulnerability_scan:
+  docker:
+    - image: cimg/node:16.16.0
+  steps:
+    - checkout
+    - node/install-packages
+    - snyk/scan:
+        fail-on-issues: true
+        monitor-on-build: false
+```
+
+- Add the job to workflow. Don't forget to give it the context!:
+
+```yaml
+workflows:
+  build_test_deploy:
+      jobs:
+        - build      
+        - test
+        - lint
+        - build_docker_image:
+            context:
+              - cicd-workshop
+        - dependency_vulnerability_scan:
+            context:
+              - cicd-workshop
+```
+
+- This will now run the automated security scan for your dependencies and fail your job if any of them have known vulnerabilities. Now let's add the security scan to our Docker image build job as well:
+
+```yaml
+build_docker_image:
+  docker:
+    - image: cimg/base:stable
+  steps:
+    - checkout
+    - setup_remote_docker:
+        docker_layer_caching: false
+    - docker/check
+    - docker/build:
+        image: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME
+        tag: 0.1.<< pipeline.number >>
+    - snyk/scan:
+        fail-on-issues: false
+        monitor-on-build: false
+        target-file: Dockerfile
+        docker-image-name: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME:0.1.<< pipeline.number >>
+        project: ${CIRCLE_PROJECT_REPONAME}/${CIRCLE_BRANCH}-app
+    - docker/push:
+        image: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME
+        tag: 0.1.<< pipeline.number >>
+```
+
 
 This runs both jobs in parallel. We might want to run them sequentially instead, so Docker deployment only happens when the tests have passed. Do this by adding a `requires` stanza to the `build_docker_image` job:
 
@@ -449,7 +523,7 @@ workflows:
               - lint
 ```
 
-This i
+This is 
 
 🎉 Congratulations, you've completed the first part of the exercise!
 

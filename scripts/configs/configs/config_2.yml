@@ -3,6 +3,7 @@ version: 2.1
 orbs:
   node: circleci/node@5.0.3
   docker: circleci/docker@2.1.4
+  snyk: snyk/snyk@1.4.0
 
 jobs:
   build:
@@ -55,9 +56,25 @@ jobs:
       - docker/build:
           image: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME
           tag: 0.1.<< pipeline.number >>
+      - snyk/scan:
+          fail-on-issues: false
+          monitor-on-build: false
+          target-file: Dockerfile
+          docker-image-name: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME:0.1.<< pipeline.number >>
+          project: ${CIRCLE_PROJECT_REPONAME}/${CIRCLE_BRANCH}-app
       - docker/push:
           image: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME
           tag: 0.1.<< pipeline.number >>
+  
+  dependency_vulnerability_scan:
+    docker:
+      - image: cimg/node:16.16.0
+    steps:
+      - checkout
+      - node/install-packages
+      - snyk/scan:
+          fail-on-issues: true
+          monitor-on-build: false
 
             
 workflows:
@@ -69,9 +86,9 @@ workflows:
         - build_docker_image:
             context:
               - cicd-workshop
-            requires:
-              - build
-              - test
-              - lint
+        - dependency_vulnerability_scan:
+            context:
+              - cicd-workshop
+
 
 # VS Code Extension Version: 1.0.2
