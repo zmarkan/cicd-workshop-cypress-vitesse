@@ -263,14 +263,52 @@ jobs:
 
 ```
 
-- Simplify this further by introducing the Node.js orb which contains this logic already implemented and ready to use:
+### Introducing orbs
+
+- Simplify this further by introducing the Node.js orb which contains this logic already implemented and ready to use, so we don't have to use the command we created earlier:
 
 ```yaml
+orbs:
+  node: circleci/node@5.0.3
 
+jobs:
+  build:
+    docker: 
+      - image: cimg/node:16.16.0
+    steps:
+      - checkout
+      - node/install-packages
+      - run:
+          command: |
+            npm run build
+  
+  test:
+    docker: 
+      - image: cimg/node:16.16.0
+    steps:
+      - checkout
+      - node/install-packages
+      - run:
+          command: |
+            npm run test
+
+  lint:
+    docker: 
+      - image: cimg/node:16.16.0
+    steps:
+      - checkout
+      - node/install-packages
+      - run:
+          command: |
+            npm run lint
 
 ```
 
-- Report test results to CircleCI. Change `test-ci` job in `package.json` to export test results in JUnit format.
+Now we have three parallel jobs that cache dependencies and execute extremely quickly, and independently of each other.
+
+### Test reporting
+
+- Report test results to CircleCI. Change the test job to `test-ci-reporting`, which is configured to export our test results in JUnit format that CircleCI can understand.
 
 ```json
 {
@@ -278,14 +316,14 @@ jobs:
   "scripts":
   {
     ...
-    "test-ci": "vitest run --reporter=junit --outputFile output/results.xml",
+    "test-ci-reporting": "vitest run --reporter=junit --outputFile output/results.xml",
     ...
   } 
   ...
 }
 ```
 
-- Add the following run commands to `build_and_test` job:
+- Add Change the `test` job to use this command and add the following commands to it:
 
 ```yaml
 jobs:
@@ -293,7 +331,7 @@ jobs:
     ...
       - run:
           name: Run tests
-          command: npm run test-ci
+          command: npm run test-ci-reporting
       - run:
           name: Copy tests results for storing
           command: |
@@ -305,53 +343,7 @@ jobs:
           path: test-results
 ```
 
-- Utilise cache for dependencies to avoid installing each time:
-
-```yaml
-jobs:
-    build_and_test:
-    ...
-    steps:
-        - checkout
-        - restore_cache:
-            key: v1-deps-{{ checksum "package-lock.json" }}
-        - run:
-            name: Install deps
-            command: npm install
-        - save_cache:
-            key: v1-deps-{{ checksum "package-lock.json" }}
-            paths: 
-                - node_modules   
-        - run:
-            name: Run tests
-            command: npm run test-ci
-
-```
-
-### Using the orb instead of installing and caching dependencies manually
-
-Now let's replace our existing process for dependency installation and running tests by using an orb - this saves you a lot of configuration and manages caching for you. Introduce the orb: 
-
-```yaml
-version: 2.1
-
-orbs:
-  node: circleci/node@5.0.2
-```
-
-- Replace the job caching and dependency installation code with the call to the `node/install_packages` in the Node orb:
-
-```yaml
-jobs:
-  build_and_test:
-    ...
-    steps:
-        - checkout
-        - node/install-packages
-        - run:
-            name: Run tests
-            command: npm run test-ci
-```
+You might also notice that you can add names to run steps so that they show up nicer in the dashboard.
 
 ### Secrets and Contexts
 
