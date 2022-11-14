@@ -269,13 +269,35 @@ workflows:
             context: 
               - cicd-workshop
         - approve_prod_deploy:
-              type: approval
-              requires:
-                - destroy_test_cluster
-              filters:
-                branches:
-                  only:
-                  - main
+            type: approval
+            requires:
+              - destroy_test_cluster
+        - create_do_k8s_cluster:
+            name: create_prod_cluster
+            env: prod
+            requires:
+              - approve_prod_deploy
+            context:
+              - cicd-workshop
+        - deploy_to_k8s:
+            name: deploy_prod
+            env: prod
+            context:
+              - cicd-workshop
+            requires:
+              - create_prod_cluster
+        - approve_prod_destroy:
+            type: approval
+            requires:
+              - deploy_prod
+        - destroy_k8s_cluster:
+            name: destroy_prod_cluster
+            env: prod
+            context:
+              - cicd-workshop
+            requires:
+              - approve_prod_destroy
+            
 
 
 
