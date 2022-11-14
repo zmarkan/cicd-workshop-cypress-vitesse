@@ -504,107 +504,13 @@ build_docker_image:
         tag: 0.1.<< pipeline.number >>
 ```
 
-
-This runs both jobs in parallel. We might want to run them sequentially instead, so Docker deployment only happens when the tests have passed. Do this by adding a `requires` stanza to the `build_docker_image` job:
-
-```yaml
-workflows:
-  build_test_deploy:
-      jobs:
-        - build      
-        - test
-        - lint
-        - build_docker_image:
-            context:
-              - cicd-workshop
-            requires:
-              - build
-              - test
-              - lint
-```
-
-This is 
-
 🎉 Congratulations, you've completed the first part of the exercise!
 
-## Chapter 2 - A realistic CI/CD pipeline
+## Chapter 2 - Infrastructure and deployments
 
-In this section you will learn about cloud native paradigms, shift left security scanning, infrastructure provisioning, and deployment of infrastructure!
+In this section you will learn about cloud native paradigms, infrastructure provisioning, and deployment of infrastructure! We'll also run some tests!
 
-If you got lost in the previous chapter, the initial state of the configuration is in `scripts/do/configs/config_2.yml`. You can restore it by running `./scripts/do_2.sh`.
-
-### Integrate automated dependency vulnerability scan
-
-- First let's integrate a security scanning tool in our process. We will use Snyk, for which you should already have the account created and environment variable set.
-
-- Add Snyk orb: 
-
-```yaml
-orbs:
-  node: circleci/node@5.0.3
-  docker: circleci/docker@2.1.4
-  snyk: snyk/snyk@1.4.0
-```
-
-Note: if you push this, you are likely to see the pipeline fail. This is because the Snyk orb comes from a third-party, developed by Snyk themselves. This is a security feature that you can overcome by opting in to partner and community orbs in your organisation settings - security.
-
-- Add dependency vulnerability scan job:
-
-```yaml
-jobs:
-...
-dependency_vulnerability_scan:
-  docker:
-    - image: cimg/node:16.16.0
-  steps:
-    - checkout
-    - node/install-packages
-    - snyk/scan:
-        fail-on-issues: true
-        monitor-on-build: false
-```
-
-- Add the job to workflow. Don't forget to give it the context!:
-
-```yaml
-workflows:
-  build_test_deploy:
-      jobs:
-        - build      
-        - test
-        - lint
-        - build_docker_image:
-            context:
-              - cicd-workshop
-        - dependency_vulnerability_scan:
-            context:
-              - cicd-workshop
-```
-
-- This will now run the automated security scan for your dependencies and fail your job if any of them have known vulnerabilities. Now let's add the security scan to our Docker image build job as well:
-
-```yaml
-build_docker_image:
-  docker:
-    - image: cimg/base:stable
-  steps:
-    - checkout
-    - setup_remote_docker:
-        docker_layer_caching: false
-    - docker/check
-    - docker/build:
-        image: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME
-        tag: 0.1.<< pipeline.number >>
-    - snyk/scan:
-        fail-on-issues: false
-        monitor-on-build: false
-        target-file: Dockerfile
-        docker-image-name: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME:0.1.<< pipeline.number >>
-        project: ${CIRCLE_PROJECT_REPONAME}/${CIRCLE_BRANCH}-app
-    - docker/push:
-        image: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME
-        tag: 0.1.<< pipeline.number >>
-```
+If you got lost in the previous chapter, the initial state of the configuration is in `scripts/configs/config_2.yml`. You can restore it by running `./scripts/chapter_2.sh`.
 
 ### Cloud Native deployments
 
@@ -620,10 +526,10 @@ This tells a cloud provider - in our case Digitalocean - what to create for us, 
 
 ```yaml
 orbs:
-  node: circleci/node@5.0.2
-  docker: circleci/docker@2.1.1
-  snyk: snyk/snyk@1.2.3
-  terraform: circleci/terraform@3.0.0
+  node: circleci/node@5.0.3
+  docker: circleci/docker@2.1.4
+  snyk: snyk/snyk@1.4.0
+  terraform: circleci/terraform@3.2.0
 ```
 
 - Add a command to install the Digitalocean CLI - `doctl`. This will be reusable in all jobs across the entire pipeline:
