@@ -494,15 +494,17 @@ dependency_vulnerability_scan:
 
 ```yaml
 workflows:
-  test_scan_deploy:
-    jobs:
-      - build_and_test
-      - dependency_vulnerability_scan:
-          context:
-            - cicd-workshop
-      - build_docker_image:
-          context:
-            - cicd-workshop
+  build_test_deploy:
+      jobs:
+        - build      
+        - test
+        - lint
+        - build_docker_image:
+            context:
+              - cicd-workshop
+        - dependency_vulnerability_scan:
+            context:
+              - cicd-workshop
 ```
 
 - This will now run the automated security scan for your dependencies and fail your job if any of them have known vulnerabilities. Now let's add the security scan to our Docker image build job as well:
