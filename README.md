@@ -695,13 +695,20 @@ workflows:
     jobs:
       ...
       - create_do_k8s_cluster:
-            context:
-              - cicd-workshop
+          context: 
+            - cicd-workshop
+          requires:
+            - build
+            - test
+            - lint
+            - build_docker_image
+            - dependency_vulnerability_scan
       - deploy_to_k8s:
           requires:
             - create_do_k8s_cluster
           context:
             - cicd-workshop
+
 ```
 
 - Now that our application has been deployed it should be running on our brand new Kubernetes cluster! Yay us, but it's not yet time to call it a day. We need to verify that the app is actually running, and for that we need to test in production. Let's introduce something called a Smoke test!
@@ -731,27 +738,24 @@ smoketest_k8s_deployment:
 workflows:
   test_scan_deploy:
     jobs:
-      - build_and_test
-      - dependency_vulnerability_scan:
-          context:
-            - cicd-workshop
-      - build_docker_image:
-          context:
-            - cicd-workshop
+      ...
       - create_do_k8s_cluster:
-          context:
-            - cicd-workshop
-      - deploy_to_k8s:
-          requires:
-            - dependency_vulnerability_scan
-            - build_docker_image
-            - build_and_test
-            - create_do_k8s_cluster
-          context:
-            - cicd-workshop
-      - smoketest_k8s_deployment:
-          requires:
-            - deploy_to_k8s
+            context: 
+              - cicd-workshop
+            requires:
+              - build
+              - test
+              - lint
+              - build_docker_image
+              - dependency_vulnerability_scan
+        - deploy_to_k8s:
+            requires:
+              - create_do_k8s_cluster
+            context:
+              - cicd-workshop
+        - smoketest_k8s_deployment:
+            requires:
+              - deploy_to_k8s
 
 ```
 
