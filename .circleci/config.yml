@@ -93,33 +93,37 @@ jobs:
           monitor-on-build: false
 
   create_do_k8s_cluster:
+    parameters:
+      env: 
+        type: string
+        default: test
     docker:
-      - image: cimg/node:16.16.0
+      - image: cimg/base:stable
     steps:
       - checkout
       - install_doctl:
-          version: 1.78.0
+          version: "1.78.0"
       - run:
           name: Create .terraformrc file locally
           command: echo "credentials \"app.terraform.io\" {token = \"$TF_CLOUD_KEY\"}" > $HOME/.terraformrc
       - terraform/install:
-          terraform_version: 1.0.6
-          arch: amd64
-          os: linux
+          terraform_version: "1.0.6"
+          arch: "amd64"
+          os: "linux"
       - terraform/init:
           path: ./terraform/do_create_k8s
       - run:
           name: Create K8s Cluster on DigitalOcean
           command: |
-            export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}
+            export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}-<< parameters.env >>
             export DO_K8S_SLUG_VER="$(doctl kubernetes options versions \
               -o json -t $DIGITALOCEAN_TOKEN | jq -r '.[0] | .slug')"
-
             terraform -chdir=./terraform/do_create_k8s apply \
               -var do_token=$DIGITALOCEAN_TOKEN \
               -var cluster_name=$CLUSTER_NAME \
               -var do_k8s_slug_ver=$DO_K8S_SLUG_VER \
               -auto-approve
+  
 
   deploy_to_k8s:
     docker:
@@ -234,6 +238,8 @@ workflows:
             context:
               - cicd-workshop
         - create_do_k8s_cluster:
+            name: create_test_cluster
+            env: test
             context: 
               - cicd-workshop
             requires:
@@ -243,14 +249,18 @@ workflows:
               - build_docker_image
               - dependency_vulnerability_scan
         - deploy_to_k8s:
+            name: deploy_test
+            env: test
             requires:
-              - create_do_k8s_cluster
+              - create_test_cluster
             context:
               - cicd-workshop
         - smoketest_k8s_deployment:
             requires:
-              - deploy_to_k8s
+              - deploy_test
         - destroy_k8s_cluster:
+            name: destroy_test_cluster
+            env: test
             requires:
               - smoketest_k8s_deployment
             context: 

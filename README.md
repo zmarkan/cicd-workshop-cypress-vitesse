@@ -834,7 +834,8 @@ workflows:
         - destroy_k8s_cluster:
             requires:
               - smoketest_k8s_deployment
-            context: cicd-workshop
+            context: 
+              - cicd-workshop
 ```
 
 🎉 Congratulations! You have reached to the end of chapter 2 with a fully fledged Kubernetes provisioning and deployment in a CI/CD pipeline!
@@ -842,11 +843,160 @@ workflows:
 
 ## Chapter 3 - Advanced deployments to multiple environments 
 
+In the final chapter we will introduce another environment - `prod`, and name our current environment `test`. It will let us test first, then only deploy to production when ready. We will also learn how to use parameters to re-use large parts of the config in our workflows.
+
+To get to the starting point, run:
+
+```bash
+./scripts/chapter_3.sh 
+```
+
+### Parameters in jobs
+
+First, let's introduce the `env` parameter to specify environment name.
+
+```yaml
+  create_do_k8s_cluster:
+    parameters:
+      env: 
+        type: string
+        default: test
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - install_doctl:
+          version: "1.78.0"
+      - run:
+          name: Create .terraformrc file locally
+          command: echo "credentials \"app.terraform.io\" {token = \"$TF_CLOUD_KEY\"}" > $HOME/.terraformrc
+      - terraform/install:
+          terraform_version: "1.0.6"
+          arch: "amd64"
+          os: "linux"
+      - terraform/init:
+          path: ./terraform/do_create_k8s
+      - run:
+          name: Create K8s Cluster on DigitalOcean
+          command: |
+            export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}-<< parameters.env >>
+            export DO_K8S_SLUG_VER="$(doctl kubernetes options versions \
+              -o json -t $DIGITALOCEAN_TOKEN | jq -r '.[0] | .slug')"
+            terraform -chdir=./terraform/do_create_k8s apply \
+              -var do_token=$DIGITALOCEAN_TOKEN \
+              -var cluster_name=$CLUSTER_NAME \
+              -var do_k8s_slug_ver=$DO_K8S_SLUG_VER \
+              -auto-approve
+```
+
+We can use this parameter in the steps by referring to it as `<< parameters.env >>`.
+
+Do the same for deployment and destroy jobs.
+
+Deployment:
+
+```yaml
+  deploy_to_k8s:
+    parameters:
+      env:
+        type: string
+        default: test
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - install_doctl:
+          version: "1.78.0"
+      - run:
+          name: Create .terraformrc file locally
+          command: echo "credentials \"app.terraform.io\" {token = \"$TF_CLOUD_KEY\"}" > $HOME/.terraformrc
+      - terraform/install:
+          terraform_version: "1.0.6"
+          arch: "amd64"
+          os: "linux"
+      - terraform/init:
+          path: ./terraform/do_k8s_deploy_app
+      - run:
+          name: Deploy Application to K8s on DigitalOcean
+          command: |
+            export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}-<< parameters.env >>
+            export TAG=0.1.<< pipeline.number >>
+            export DOCKER_IMAGE="${DOCKER_LOGIN}/${CIRCLE_PROJECT_REPONAME}:$TAG"
+            doctl auth init -t $DIGITALOCEAN_TOKEN
+            doctl kubernetes cluster kubeconfig save $CLUSTER_NAME
+            terraform -chdir=./terraform/do_k8s_deploy_app apply \
+              -var do_token=$DIGITALOCEAN_TOKEN \
+              -var cluster_name=$CLUSTER_NAME \
+              -var docker_image=$DOCKER_IMAGE \
+              -auto-approve
+            # Save the Load Balancer Public IP Address
+            export ENDPOINT="$(terraform -chdir=./terraform/do_k8s_deploy_app output lb_public_ip)"
+            mkdir -p /tmp/do_k8s/
+            echo 'export ENDPOINT='${ENDPOINT} > /tmp/do_k8s/dok8s-endpoint
+      - persist_to_workspace:
+          root: /tmp/do_k8s/
+          paths:
+            - "*"
+```
+
+Destruction job:
+
+```yaml
+ destroy_k8s_cluster:
+    parameters:
+      env:
+        type: string
+        default: test
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - install_doctl:
+          version: "1.78.0"
+      - run:
+          name: Create .terraformrc file locally
+          command: echo "credentials \"app.terraform.io\" {token = \"$TF_CLOUD_KEY\"}" > $HOME/.terraformrc && cat $HOME/.terraformrc
+      - terraform/install:
+          terraform_version: "1.0.6"
+          arch: "amd64"
+          os: "linux"
+      - terraform/init:
+          path: ./terraform/do_k8s_deploy_app/
+      - run:
+          name: Destroy App Deployment
+          command: |
+            export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}-<< parameters.env >>
+            export TAG=0.1.<< pipeline.number >>
+            export DOCKER_IMAGE="${DOCKER_LOGIN}/${CIRCLE_PROJECT_REPONAME}:$TAG"          
+            doctl auth init -t $DIGITALOCEAN_TOKEN
+            doctl kubernetes cluster kubeconfig save $CLUSTER_NAME
+            terraform -chdir=./terraform/do_k8s_deploy_app/ apply -destroy \
+              -var do_token=$DIGITALOCEAN_TOKEN \
+              -var cluster_name=$CLUSTER_NAME \
+              -var docker_image=$DOCKER_IMAGE \
+              -auto-approve
+      - terraform/init:
+          path: ./terraform/do_create_k8s
+      - run:
+          name: Destroy K8s Cluster
+          command: |
+            export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}-<< parameters.env >>
+            export DO_K8S_SLUG_VER="$(doctl kubernetes options versions \
+              -o json -t $DIGITALOCEAN_TOKEN | jq -r '.[0] | .slug')"
+            terraform -chdir=./terraform/do_create_k8s apply -destroy \
+              -var do_token=$DIGITALOCEAN_TOKEN \
+              -var cluster_name=$CLUSTER_NAME \
+              -var do_k8s_slug_ver=$DO_K8S_SLUG_VER \
+              -auto-approve
+
+```
+
+Now our jobs take parameters we need to also pass them. We do that in the workflows. We will also specify a unique name for these jobs inside a workflow, so we can refer to them later.
+
+```yaml
 
 
-
-
-
+```
 
 
 Let's pretend a few months have passed, you have been working on your application for a while and noticed the tests now run a lot longer than they used to! In this chapter we will be focusing on improving the pipeline itself.
@@ -854,7 +1004,7 @@ Let's pretend a few months have passed, you have been working on your applicatio
 To get to the starting point, run:
 
 ```bash
-./scripts/do_3.sh 
+./scripts/chapter_3.sh 
 ```
 
 This will copy over a bunch of long running tests to simulate your application growing. Commit and see that tests now run for around 5 minutes, much longer than before.
