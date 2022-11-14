@@ -994,9 +994,79 @@ Destruction job:
 Now our jobs take parameters we need to also pass them. We do that in the workflows. We will also specify a unique name for these jobs inside a workflow, so we can refer to them later.
 
 ```yaml
+workflows:
+  build_test_deploy:
+      jobs:
+        - build      
+        - test
+        - lint
+        - build_docker_image:
+            context:
+              - cicd-workshop
+        - dependency_vulnerability_scan:
+            context:
+              - cicd-workshop
+        - create_do_k8s_cluster:
+            name: create_test_cluster
+            env: test
+            context: 
+              - cicd-workshop
+            requires:
+              - build
+              - test
+              - lint
+              - build_docker_image
+              - dependency_vulnerability_scan
+        - deploy_to_k8s:
+            name: deploy_test
+            env: test
+            requires:
+              - create_test_cluster
+            context:
+              - cicd-workshop
+        - smoketest_k8s_deployment:
+            requires:
+              - deploy_test
+        - destroy_k8s_cluster:
+            name: destroy_test_cluster
+            env: test
+            requires:
+              - smoketest_k8s_deployment
+            context: 
+              - cicd-workshop
+```
+
+Now we have a clearly labeled test environment, so we can move on to production. Before we do that we want to make sure someone manually approves it though. We will introduce a special approval job for that:
+
+```yaml
+
+workflows:
+  build_test_deploy:
+      jobs:
+        ...
+        - destroy_k8s_cluster:
+            name: destroy_test_cluster
+            env: test
+            requires:
+              - smoketest_k8s_deployment
+            context: 
+              - cicd-workshop
+        - approve_prod_deploy:
+            type: approval
+            requires:
+              - destroy_test_cluster
+```
+ Because of parameters there is much less code to write, just add the `prod` references in the `env` params:
+
+```yaml
 
 
 ```
+
+
+
+
+
 
 
 Let's pretend a few months have passed, you have been working on your application for a while and noticed the tests now run a lot longer than they used to! In this chapter we will be focusing on improving the pipeline itself.

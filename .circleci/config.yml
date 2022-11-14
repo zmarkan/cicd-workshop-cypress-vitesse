@@ -268,6 +268,14 @@ workflows:
               - smoketest_k8s_deployment
             context: 
               - cicd-workshop
+        - approve_prod_deploy:
+              type: approval
+              requires:
+                - destroy_test_cluster
+              filters:
+                branches:
+                  only:
+                  - main
 
 
 
