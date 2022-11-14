@@ -834,12 +834,20 @@ workflows:
         - destroy_k8s_cluster:
             requires:
               - smoketest_k8s_deployment
+            context: cicd-workshop
 ```
 
 🎉 Congratulations! You have reached to the end of chapter 2 with a fully fledged Kubernetes provisioning and deployment in a CI/CD pipeline!
 
 
-## Chapter 3 - Multiple environments 
+## Chapter 3 - Advanced deployments to multiple environments 
+
+
+
+
+
+
+
 
 Let's pretend a few months have passed, you have been working on your application for a while and noticed the tests now run a lot longer than they used to! In this chapter we will be focusing on improving the pipeline itself.
 
