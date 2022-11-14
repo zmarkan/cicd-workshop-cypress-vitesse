@@ -335,6 +335,7 @@ jobs:
       - run:
           name: Copy tests results for storing
           command: |
+            mkdir test-results/
             cp test-results.xml test-results/
           when: always
       - store_test_results:
