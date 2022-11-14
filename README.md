@@ -219,7 +219,9 @@ commands:
   install_and_cache_node_dependencies:
     steps:
       - restore_cache:
-            key: v1-deps-{{ checksum "package-lock.json" }}
+            keys: 
+              - v2-deps-{{ checksum "package-lock.json" }}
+              - v2-deps-
       - run:
           name: Install deps
           command: npm install
@@ -258,6 +260,13 @@ jobs:
       - run:
           command: |
             npm run lint
+
+```
+
+- Simplify this further by introducing the Node.js orb which contains this logic already implemented and ready to use:
+
+```yaml
+
 
 ```
 
