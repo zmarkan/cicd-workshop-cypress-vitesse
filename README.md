@@ -31,6 +31,7 @@ If you don't do this, you'll have a bad time.
 - Go to API (left)
 - Generate New Token with read and write access
 - copy the token string to `credentials.toml` - `digitalocean_token`
+- The workshop host will provide a coupon code for you to use.
  
 #### Terraform Cloud
 
@@ -62,55 +63,45 @@ To jump between chapters we have prepared a set of handy scripts you can run in 
 
 The scripts to run are:
 
-`./scripts/do_1_start.sh` - Beginning of first chapter
-`./scripts/do_2.sh` - End of first chapter/Start of second chapter
-`./scripts/do_3.sh` - End of second chapter/Start of third chapter
+`./scripts/do_1_start.sh` - Beginning of first stage
+`./scripts/do_2.sh` - End of first stage/Start of second stage
+`./scripts/do_3.sh` - End of second stage/Start of third stage
 `./scripts/do_4.sh` - Final state
-`./scripts/do_5_dynamic.sh` - Final state using Dynamic configuration
 
 The chapters will copy and overwrite certain files in your workspace, so after running each script, commit the changes and push it, which will run it on CircleCI.
 
 ### Overview of the project
 
-The project is a simple web application, that is packaged in a Docker container, and deployed on Kubernetes - hosted on DigitalOcean infrastructure. 
+The project is a simple web application based on the Vitesse project, that is packaged in a Docker container, and deployed on Kubernetes - hosted on DigitalOcean infrastructure. 
 We also have some tests, a security scan, building the image, provisioning the infrastructure and deploying the application.
 
 ### Workshop topics covered
 
-#### Chapter 1 - Basics of CI/CD
+#### Stage 1 - Basics of CI
 
 - YAML
-- Setting up the first pipeline
-- Writing a job and workflow
-- Running tests
+- Reviewing the first pipeline
+- Running tests and checks in parallel
 - Reporting test results
-- Installing dependencies manually
 - Caching dependencies
 - Using the orb to install and cache dependencies 
 - Setting up secrets and contexts
-- Build the docker image & push to docker hub
+- Building and pushing a Docker image
+- Scanning vulnerabilities
 
-#### Chapter 2 - A realistic CI/CD pipeline
+#### Stage 2 - Deployments and infrastructure provisioning
 
-- Run security scan w/ Snyk
 - Cloud native principles
 - Provision infrastructure with Terraform on DigitalOcean
 - Deploy to infrastructure
 - Run a smoke test on deployed app
-- Destroy the deployed application and provisioned infrastructure
-- Manual approval step before destroy
-- approve and destroy (explain approval job)
+- Destroy the deployed application and provisioned test infrastructure
 
 #### Chapter 3 - Advanced CircleCI concepts
 
 - Filtering pipelines on branches and tags
-- Using test splitting to tear down a long running test suite
-- Running test in matrix across multiple versions
-- Scheduling pipelines and using pipeline parametres to drive the flow
-
-#### Chapter 4 - Using Dynamic Configuration to select what gets built when
-
-- Add a flow that only build the application and run tests if files outside of scripts have changed
+- Approval production deployment
+- Provisioning both test and production infrastructure and deployment
 
 ## Chapter 1 - Basics of CircleCI
 
@@ -121,37 +112,71 @@ To begin, prepare your environment for the initial state by running the start sc
 Go to app.circleci.com, and if you haven't yet, log in with your GitHub account (or create a new one).
 Navigate to the `Projects` tab, and find this workshop project there - `cicd-workshop`.
 
-First we will create a basic continuous integration pipeline, which will run your tests each time you commit some code. Run a commit for each instruction.
+We will start off with a basic continuous integration pipeline, which will run your tests each time you commit some code. Run a commit for each instruction. The first pipeline is already configured, if it's not you can run: `./scripts/do_0_start.sh` to create the environment.
 
-- Run: `./scripts/do_0_start.sh` to create the environment.
-- In the `.circleci/config.yaml` find the `jobs` section, and add a job called `build_and_test`:
+Now review the `.circleci/config.yaml` find the `jobs` section, and a job called `build`, and workflow called `build_test_deploy`:
 
 ```yaml
-...
+version: 2.1
+
 jobs:
-  build_and_test:
+  build:
     docker:
       - image: cimg/node:16.16.0
     steps:
       - checkout
       - run:
-          name: Install deps
-          command: npm install
+          command: |
+            npm install
       - run:
-          name: Run tests
-          command: npm run test-ci
+          command: |
+            npm run lint
+            npm run test
+            npm run build
+
+workflows:
+  build_test_deploy:
+    jobs:
+      - build
+
 ```
 
-- Now let's create a workflow that will run our job: 
+Original configuration has multiple commands in a single job. That is not ideal as any one of these can fail and we won't quickly know where it failed. We can split across multiple commands:
 
 ```yaml
-workflows:
-  test_scan_deploy:
-    jobs:
-      - build_and_test
+jobs:
+  build:
+    docker:
+      - image: cimg/node:16.16.0
+    steps:
+      - checkout
+      - run:
+          command: |
+            npm install
+      - run:
+          command: |
+            npm run lint
+            npm run test
+            npm run build
 ```
 
-- Report test results to CircleCI. Add the following run commands to `build_and_test` job:
+
+- Report test results to CircleCI. Change `test-ci` job in `package.json` to export test results in JUnit format.
+
+```json
+{
+  ...
+  "scripts":
+  {
+    ...
+    "test-ci": "vitest run --reporter=junit --outputFile output/results.xml",
+    ...
+  } 
+  ...
+}
+```
+
+- Add the following run commands to `build_and_test` job:
 
 ```yaml
 jobs:
@@ -201,8 +226,8 @@ Now let's replace our existing process for dependency installation and running t
 ```yaml
 version: 2.1
 
-orbs: 
-    node: circleci/node@5.0.2
+orbs:
+  node: circleci/node@5.0.2
 ```
 
 - Replace the job caching and dependency installation code with the call to the `node/install_packages` in the Node orb:
@@ -256,20 +281,20 @@ orbs:
 ```yaml
 jobs:
 ...
-  build_docker_image:
-      docker:
-        - image: cimg/base:stable
-      steps:
-        - checkout
-        - setup_remote_docker:
-            docker_layer_caching: false
-        - docker/check
-        - docker/build:
-            image: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME
-            tag: 0.1.<< pipeline.number >>
-        - docker/push:
-            image: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME
-            tag: 0.1.<< pipeline.number >>
+build_docker_image:
+  docker:
+    - image: cimg/base:stable
+  steps:
+    - checkout
+    - setup_remote_docker:
+        docker_layer_caching: false
+    - docker/check
+    - docker/build:
+        image: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME
+        tag: 0.1.<< pipeline.number >>
+    - docker/push:
+        image: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME
+        tag: 0.1.<< pipeline.number >>
 ```
 
 In the workflow, add the deployment job:
@@ -289,11 +314,11 @@ Add the context we created earlier:
 ```yaml
 workflows:
   test_scan_deploy:
-      jobs:
-        - build_and_test
-        - build_docker_image:
-            context:
-              - cicd-workshop
+    jobs:
+      - build_and_test
+      - build_docker_image:
+          context:
+            - cicd-workshop
 ```
 
 This runs both jobs in parallel. We might want to run them sequentially instead, so Docker deployment only happens when the tests have passed. Do this by adding a `requires` stanza to the `build_docker_image` job:
@@ -301,13 +326,13 @@ This runs both jobs in parallel. We might want to run them sequentially instead,
 ```yaml
 workflows:
   test_scan_deploy:
-      jobs:
-        - build_and_test
-        - build_docker_image:
-            context:
-              - cicd-workshop
-            requires:
-              - build_and_test
+    jobs:
+      - build_and_test
+      - build_docker_image:
+          context:
+            - cicd-workshop
+          requires:
+            - build_and_test
 ```
 
 🎉 Congratulations, you've completed the first part of the exercise!
@@ -325,7 +350,7 @@ If you got lost in the previous chapter, the initial state of the configuration 
 - Add Snyk orb: 
 
 ```yaml
-orbs: 
+orbs:
   node: circleci/node@5.0.2
   docker: circleci/docker@2.1.1
   snyk: snyk/snyk@1.2.3
@@ -338,15 +363,15 @@ Note: if you push this, you are likely to see the pipeline fail. This is because
 ```yaml
 jobs:
 ...
-  dependency_vulnerability_scan:
-    docker:
-      - image: cimg/node:16.16.0
-    steps:
-      - checkout
-      - node/install-packages
-      - snyk/scan:
-          fail-on-issues: true
-          monitor-on-build: false
+dependency_vulnerability_scan:
+  docker:
+    - image: cimg/node:16.16.0
+  steps:
+    - checkout
+    - node/install-packages
+    - snyk/scan:
+        fail-on-issues: true
+        monitor-on-build: false
 ```
 
 - Add the job to workflow. Don't forget to give it the context!:
@@ -354,39 +379,39 @@ jobs:
 ```yaml
 workflows:
   test_scan_deploy:
-      jobs:
-        - build_and_test
-        - dependency_vulnerability_scan:
-            context:
-              - cicd-workshop
-        - build_docker_image:
-            context:
-              - cicd-workshop
+    jobs:
+      - build_and_test
+      - dependency_vulnerability_scan:
+          context:
+            - cicd-workshop
+      - build_docker_image:
+          context:
+            - cicd-workshop
 ```
 
 - This will now run the automated security scan for your dependencies and fail your job if any of them have known vulnerabilities. Now let's add the security scan to our Docker image build job as well:
 
 ```yaml
-  build_docker_image:
-    docker:
-      - image: cimg/base:stable
-    steps:
-      - checkout
-      - setup_remote_docker:
-          docker_layer_caching: false
-      - docker/check
-      - docker/build:
-          image: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME
-          tag: 0.1.<< pipeline.number >>
-      - snyk/scan:
-          fail-on-issues: false
-          monitor-on-build: false
-          target-file: "Dockerfile"
-          docker-image-name: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME:0.1.<< pipeline.number >>
-          project: ${CIRCLE_PROJECT_REPONAME}/${CIRCLE_BRANCH}-app
-      - docker/push:
-          image: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME
-          tag: 0.1.<< pipeline.number >>
+build_docker_image:
+  docker:
+    - image: cimg/base:stable
+  steps:
+    - checkout
+    - setup_remote_docker:
+        docker_layer_caching: false
+    - docker/check
+    - docker/build:
+        image: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME
+        tag: 0.1.<< pipeline.number >>
+    - snyk/scan:
+        fail-on-issues: false
+        monitor-on-build: false
+        target-file: Dockerfile
+        docker-image-name: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME:0.1.<< pipeline.number >>
+        project: ${CIRCLE_PROJECT_REPONAME}/${CIRCLE_BRANCH}-app
+    - docker/push:
+        image: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME
+        tag: 0.1.<< pipeline.number >>
 ```
 
 ### Cloud Native deployments
@@ -416,7 +441,7 @@ commands:
   install_doctl:
     parameters:
       version:
-        default: "1.79.0"
+        default: 1.79.0
         type: string
     steps:
       - run:
@@ -446,33 +471,33 @@ Add a job to create a Terraform cluster
 
 ```yaml
 create_do_k8s_cluster:
-    docker:
-      - image: cimg/node:16.16.0
-    steps:
-      - checkout
-      - install_doctl:
-          version: "1.78.0"
-      - run:
-          name: Create .terraformrc file locally
-          command: echo "credentials \"app.terraform.io\" {token = \"$TF_CLOUD_KEY\"}" > $HOME/.terraformrc
-      - terraform/install:
-          terraform_version: "1.0.6"
-          arch: "amd64"
-          os: "linux"
-      - terraform/init:
-          path: ./terraform/do_create_k8s
-      - run:
-          name: Create K8s Cluster on DigitalOcean
-          command: |
-            export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}
-            export DO_K8S_SLUG_VER="$(doctl kubernetes options versions \
-              -o json -t $DIGITAL_OCEAN_TOKEN | jq -r '.[0] | .slug')"
+  docker:
+    - image: cimg/node:16.16.0
+  steps:
+    - checkout
+    - install_doctl:
+        version: 1.78.0
+    - run:
+        name: Create .terraformrc file locally
+        command: echo "credentials \"app.terraform.io\" {token = \"$TF_CLOUD_KEY\"}" > $HOME/.terraformrc
+    - terraform/install:
+        terraform_version: 1.0.6
+        arch: amd64
+        os: linux
+    - terraform/init:
+        path: ./terraform/do_create_k8s
+    - run:
+        name: Create K8s Cluster on DigitalOcean
+        command: |
+          export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}
+          export DO_K8S_SLUG_VER="$(doctl kubernetes options versions \
+            -o json -t $DIGITAL_OCEAN_TOKEN | jq -r '.[0] | .slug')"
 
-            terraform -chdir=./terraform/do_create_k8s apply \
-              -var do_token=$DIGITAL_OCEAN_TOKEN \
-              -var cluster_name=$CLUSTER_NAME \
-              -var do_k8s_slug_ver=$DO_K8S_SLUG_VER \
-              -auto-approve
+          terraform -chdir=./terraform/do_create_k8s apply \
+            -var do_token=$DIGITAL_OCEAN_TOKEN \
+            -var cluster_name=$CLUSTER_NAME \
+            -var do_k8s_slug_ver=$DO_K8S_SLUG_VER \
+            -auto-approve
 
 ```
 
@@ -481,22 +506,22 @@ Add the new job to the workflow. Add `requires` statements to only start deploym
 ```yaml
 workflows:
   test_scan_deploy:
-      jobs:
-        - build_and_test
-        - dependency_vulnerability_scan:
-            context:
-              - cicd-workshop
-        - build_docker_image:
-            context:
-              - cicd-workshop
-        - create_do_k8s_cluster:
-            requires:
-              - dependency_vulnerability_scan
-              - build_docker_image
-              - build_and_test
-            context:
-              - cicd-workshop
-            
+    jobs:
+      - build_and_test
+      - dependency_vulnerability_scan:
+          context:
+            - cicd-workshop
+      - build_docker_image:
+          context:
+            - cicd-workshop
+      - create_do_k8s_cluster:
+          requires:
+            - dependency_vulnerability_scan
+            - build_docker_image
+            - build_and_test
+          context:
+            - cicd-workshop
+
 ```
 
 ### Deploying to your Kubernetes cluster 
@@ -520,46 +545,45 @@ In the workspace GUI, go to `Settings`, and make sure to switch the `Execution M
 Add a job `deploy_to_k8s` which will perform the deployment:
 
 ```yaml
-
 deploy_to_k8s:
-    docker:
-      - image: cimg/node:14.16.0
-    steps:
-      - checkout
-      - install_doctl:
-          version: "1.78.0"
-      - run:
-          name: Create .terraformrc file locally
-          command: echo "credentials \"app.terraform.io\" {token = \"$TF_CLOUD_KEY\"}" > $HOME/.terraformrc
-      - terraform/install:
-          terraform_version: "1.0.6"
-          arch: "amd64"
-          os: "linux"
-      - terraform/init:
-          path: ./terraform/do_k8s_deploy_app
-      - run:
-          name: Deploy Application to K8s on DigitalOcean
-          command: |
-            export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}
-            export TAG=0.1.<< pipeline.number >>
-            export DOCKER_IMAGE="${DOCKER_LOGIN}/${CIRCLE_PROJECT_REPONAME}:$TAG"
-            doctl auth init -t $DIGITALOCEAN_TOKEN
-            doctl kubernetes cluster kubeconfig save $CLUSTER_NAME
+  docker:
+    - image: cimg/node:14.16.0
+  steps:
+    - checkout
+    - install_doctl:
+        version: 1.78.0
+    - run:
+        name: Create .terraformrc file locally
+        command: echo "credentials \"app.terraform.io\" {token = \"$TF_CLOUD_KEY\"}" > $HOME/.terraformrc
+    - terraform/install:
+        terraform_version: 1.0.6
+        arch: amd64
+        os: linux
+    - terraform/init:
+        path: ./terraform/do_k8s_deploy_app
+    - run:
+        name: Deploy Application to K8s on DigitalOcean
+        command: |
+          export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}
+          export TAG=0.1.<< pipeline.number >>
+          export DOCKER_IMAGE="${DOCKER_LOGIN}/${CIRCLE_PROJECT_REPONAME}:$TAG"
+          doctl auth init -t $DIGITALOCEAN_TOKEN
+          doctl kubernetes cluster kubeconfig save $CLUSTER_NAME
 
-            terraform -chdir=./terraform/do_k8s_deploy_app apply \
-              -var do_token=$DIGITALOCEAN_TOKEN \
-              -var cluster_name=$CLUSTER_NAME \
-              -var docker_image=$DOCKER_IMAGE \
-              -auto-approve
+          terraform -chdir=./terraform/do_k8s_deploy_app apply \
+            -var do_token=$DIGITALOCEAN_TOKEN \
+            -var cluster_name=$CLUSTER_NAME \
+            -var docker_image=$DOCKER_IMAGE \
+            -auto-approve
 
-            # Save the Load Balancer Public IP Address
-            export ENDPOINT="$(terraform -chdir=./terraform/do_k8s_deploy_app output lb_public_ip)"
-            mkdir -p /tmp/do_k8s/
-            echo 'export ENDPOINT='${ENDPOINT} > /tmp/do_k8s/dok8s-endpoint
-      - persist_to_workspace:
-          root: /tmp/do_k8s/
-          paths:
-            - "*"
+          # Save the Load Balancer Public IP Address
+          export ENDPOINT="$(terraform -chdir=./terraform/do_k8s_deploy_app output lb_public_ip)"
+          mkdir -p /tmp/do_k8s/
+          echo 'export ENDPOINT='${ENDPOINT} > /tmp/do_k8s/dok8s-endpoint
+    - persist_to_workspace:
+        root: /tmp/do_k8s/
+        paths:
+          - '*'
 
 ```
 
@@ -586,49 +610,48 @@ workflows:
 - Add a new job - `smoketest_k8s_deployment. This uses a bash script to make HTTP requests to the deployed app and verifies the responses are what we expect. We also use a CircleCI Workspace to pass the endpoint of the deployed application to our test. 
 
 ```yaml
-  smoketest_k8s_deployment:
-    docker:
-      - image: cimg/base:stable
-    steps:
-      - checkout
-      - attach_workspace:
-          at: /tmp/do_k8s/
-      - run:
-          name: Smoke Test K8s App Deployment
-          command: |
-            source /tmp/do_k8s/dok8s-endpoint
-            ./test/smoke_test $ENDPOINT
+smoketest_k8s_deployment:
+  docker:
+    - image: cimg/base:stable
+  steps:
+    - checkout
+    - attach_workspace:
+        at: /tmp/do_k8s/
+    - run:
+        name: Smoke Test K8s App Deployment
+        command: |
+          source /tmp/do_k8s/dok8s-endpoint
+          ./test/smoke_test $ENDPOINT
 
 ```
 
 - Add the smoke test job to the workflow, so it's dependent on `deploy_to_k8s`:
 
 ```yaml
-
 workflows:
   test_scan_deploy:
-      jobs:
-        - build_and_test
-        - dependency_vulnerability_scan:
-            context:
-              - cicd-workshop
-        - build_docker_image:
-            context:
-              - cicd-workshop
-        - create_do_k8s_cluster:
-            context:
-              - cicd-workshop
-        - deploy_to_k8s:
-            requires:
-              - dependency_vulnerability_scan
-              - build_docker_image
-              - build_and_test
-              - create_do_k8s_cluster
-            context:
-              - cicd-workshop
-        - smoketest_k8s_deployment:
-            requires:
-              - deploy_to_k8s
+    jobs:
+      - build_and_test
+      - dependency_vulnerability_scan:
+          context:
+            - cicd-workshop
+      - build_docker_image:
+          context:
+            - cicd-workshop
+      - create_do_k8s_cluster:
+          context:
+            - cicd-workshop
+      - deploy_to_k8s:
+          requires:
+            - dependency_vulnerability_scan
+            - build_docker_image
+            - build_and_test
+            - create_do_k8s_cluster
+          context:
+            - cicd-workshop
+      - smoketest_k8s_deployment:
+          requires:
+            - deploy_to_k8s
 
 ```
 
@@ -640,50 +663,50 @@ The last step of this chapter is to tear down the infrastructure we provisioned,
 
 ```yaml
 destroy_k8s_cluster:
-    docker:
-      - image: cimg/base:stable
-    steps:
-      - checkout
-      - install_doctl:
-          version: "1.78.0"
-      - run:
-          name: Create .terraformrc file locally
-          command: echo "credentials \"app.terraform.io\" {token = \"$TF_CLOUD_KEY\"}" > $HOME/.terraformrc && cat $HOME/.terraformrc
-      - terraform/install:
-          terraform_version: "1.0.6"
-          arch: "amd64"
-          os: "linux"
-      - terraform/init:
-          path: ./terraform/do_k8s_deploy_app/
-      - run:
-          name: Destroy App Deployment
-          command: |
-            export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}
-            export TAG=0.1.<< pipeline.number >>
-            export DOCKER_IMAGE="${DOCKER_LOGIN}/${CIRCLE_PROJECT_REPONAME}:$TAG"          
-            doctl auth init -t $DIGITALOCEAN_TOKEN
-            doctl kubernetes cluster kubeconfig save $CLUSTER_NAME
+  docker:
+    - image: cimg/base:stable
+  steps:
+    - checkout
+    - install_doctl:
+        version: 1.78.0
+    - run:
+        name: Create .terraformrc file locally
+        command: echo "credentials \"app.terraform.io\" {token = \"$TF_CLOUD_KEY\"}" > $HOME/.terraformrc && cat $HOME/.terraformrc
+    - terraform/install:
+        terraform_version: 1.0.6
+        arch: amd64
+        os: linux
+    - terraform/init:
+        path: ./terraform/do_k8s_deploy_app/
+    - run:
+        name: Destroy App Deployment
+        command: |
+          export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}
+          export TAG=0.1.<< pipeline.number >>
+          export DOCKER_IMAGE="${DOCKER_LOGIN}/${CIRCLE_PROJECT_REPONAME}:$TAG"
+          doctl auth init -t $DIGITALOCEAN_TOKEN
+          doctl kubernetes cluster kubeconfig save $CLUSTER_NAME
 
-            terraform -chdir=./terraform/do_k8s_deploy_app/ apply -destroy \
-              -var do_token=$DIGITALOCEAN_TOKEN \
-              -var cluster_name=$CLUSTER_NAME \
-              -var docker_image=$DOCKER_IMAGE \
-              -auto-approve
+          terraform -chdir=./terraform/do_k8s_deploy_app/ apply -destroy \
+            -var do_token=$DIGITALOCEAN_TOKEN \
+            -var cluster_name=$CLUSTER_NAME \
+            -var docker_image=$DOCKER_IMAGE \
+            -auto-approve
 
-      - terraform/init:
-          path: ./terraform/do_create_k8s
-      - run:
-          name: Destroy K8s Cluster
-          command: |
-            export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}
-            export DO_K8S_SLUG_VER="$(doctl kubernetes options versions \
-              -o json -t $DIGITALOCEAN_TOKEN | jq -r '.[0] | .slug')"
+    - terraform/init:
+        path: ./terraform/do_create_k8s
+    - run:
+        name: Destroy K8s Cluster
+        command: |
+          export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}
+          export DO_K8S_SLUG_VER="$(doctl kubernetes options versions \
+            -o json -t $DIGITALOCEAN_TOKEN | jq -r '.[0] | .slug')"
 
-            terraform -chdir=./terraform/do_create_k8s apply -destroy \
-              -var do_token=$DIGITALOCEAN_TOKEN \
-              -var cluster_name=$CLUSTER_NAME \
-              -var do_k8s_slug_ver=$DO_K8S_SLUG_VER \
-              -auto-approve
+          terraform -chdir=./terraform/do_create_k8s apply -destroy \
+            -var do_token=$DIGITALOCEAN_TOKEN \
+            -var cluster_name=$CLUSTER_NAME \
+            -var do_k8s_slug_ver=$DO_K8S_SLUG_VER \
+            -auto-approve
 ```
 
 This runs two Terraform steps - with the, running `apply -destroy` which basically undoes them. First the deployment, and then the underlying infrastructure.
@@ -693,37 +716,37 @@ This runs two Terraform steps - with the, running `apply -destroy` which basical
 ```yaml
 workflows:
   test_scan_deploy:
-      jobs:
-        - build_and_test
-        - dependency_vulnerability_scan:
-            context:
-              - cicd-workshop
-        - build_docker_image:
-            context:
-              - cicd-workshop
-        - create_do_k8s_cluster:
-            context:
-              - cicd-workshop
-        - deploy_to_k8s:
-            requires:
-              - dependency_vulnerability_scan
-              - build_docker_image
-              - build_and_test
-              - create_do_k8s_cluster
-            context:
-              - cicd-workshop
-        - smoketest_k8s_deployment:
-            requires:
-              - deploy_to_k8s
-        - approve_destroy:
-            type: approval
-            requires:
-              - smoketest_k8s_deployment
-        - destroy_k8s_cluster:
-            requires:
-              - approve_destroy
-            context:
-              - cicd-workshop
+    jobs:
+      - build_and_test
+      - dependency_vulnerability_scan:
+          context:
+            - cicd-workshop
+      - build_docker_image:
+          context:
+            - cicd-workshop
+      - create_do_k8s_cluster:
+          context:
+            - cicd-workshop
+      - deploy_to_k8s:
+          requires:
+            - dependency_vulnerability_scan
+            - build_docker_image
+            - build_and_test
+            - create_do_k8s_cluster
+          context:
+            - cicd-workshop
+      - smoketest_k8s_deployment:
+          requires:
+            - deploy_to_k8s
+      - approve_destroy:
+          type: approval
+          requires:
+            - smoketest_k8s_deployment
+      - destroy_k8s_cluster:
+          requires:
+            - approve_destroy
+          context:
+            - cicd-workshop
 ```
 
 The `approve_destroy` had a special type set - `approval` which means we don't have to define it and it will give us the option to manually confirm we want to continue executing the workflow.
@@ -931,7 +954,7 @@ setup: true
 - Add the `path-filtering` orb (and remove others) in `config.yml`
 
 ```yaml
-orbs: 
+orbs:
   path-filtering: circleci/path-filtering@0.1.1
   continuation: circleci/continuation@0.2.0
 ```
@@ -943,7 +966,7 @@ jobs:
   filter-paths:
     docker:
       - image: cimg/base:stable
-    steps:   
+    steps:
       - checkout
       - path-filtering/set-parameters:
           base-revision: main
@@ -952,7 +975,7 @@ jobs:
           output-path: /tmp/pipeline-parameters.json
       - continuation/continue:
           configuration_path: .circleci/continue-config.yml
-          parameters: /tmp/pipeline-parameters.json 
+          parameters: /tmp/pipeline-parameters.json
 workflows:
   choose-config:
     jobs:

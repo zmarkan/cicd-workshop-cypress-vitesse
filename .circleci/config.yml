@@ -11,8 +11,17 @@ jobs:
             npm install
       - run:
           command: |
-            npm run build test lint
-      
+            npm install
+      - run:
+          command: |
+            npm run lint
+      - run:
+          command: |
+            npm run test
+      - run:
+          command: |
+            npm run build
+            
 workflows:
   build_test_deploy:
       jobs:
