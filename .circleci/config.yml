@@ -31,6 +31,19 @@ jobs:
       - run:
           command: |
             npm run build
+      - persist_to_workspace:
+          root: .
+          paths:
+            - "dist/*"
+
+  cypress-e2e:
+    docker:
+      - image: cypress/base:16.18.0
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run: ls dist/
   
   test:
     docker: 
@@ -231,7 +244,10 @@ jobs:
 workflows:
   build_test_deploy:
       jobs:
-        - build      
+        - build   
+        - cypress-e2e:
+            requires:
+              - build
         - test
         - lint
         - build_docker_image:
