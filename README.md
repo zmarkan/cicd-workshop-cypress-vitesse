@@ -1131,6 +1131,22 @@ workflows:
               - approve_prod_destroy
 ```
 
+Now you have implemented deployments to two different environments. Let's make sure production only happens when pushing to the main branch.
+
+Change the `approve_prod_deploy` job in the workflow to add a filter to it:
+
+```yaml
+- approve_prod_deploy:
+    type: approval
+    requires:
+      - destroy_test_cluster
+    filters:
+      branches:
+        only: 
+          - main
+
+```
+
  Congratulations, you have completed the CircleCI part of the workshop! Now let's learn about Cypress!
 
  You can jump to this latest stage by running `./scripts/chapter_3.sh`

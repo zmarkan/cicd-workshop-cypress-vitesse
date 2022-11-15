@@ -272,6 +272,10 @@ workflows:
             type: approval
             requires:
               - destroy_test_cluster
+            filters:
+              branches:
+                only: 
+                  - main
         - create_do_k8s_cluster:
             name: create_prod_cluster
             env: prod
