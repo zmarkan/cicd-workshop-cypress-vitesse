@@ -48,6 +48,10 @@ jobs:
           name: Cypress E2E tests
           command: |
             npm run test-ci:e2e
+      - store_artifacts:
+          path: /root/project/cypress/videos/*
+      - store_artifacts:
+          path: /root/project/cypress/screenshots/*
   
   test:
     docker: 
