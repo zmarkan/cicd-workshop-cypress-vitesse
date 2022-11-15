@@ -18,6 +18,6 @@ jobs:
 workflows:
   build_test_deploy:
       jobs:
-        - build      
+        - build     
 
 # VS Code Extension Version: 1.0.2

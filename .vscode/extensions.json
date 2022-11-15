@@ -1,8 +1,8 @@
 {
   "recommendations": [
+    "CircleCI.circleci",
     "antfu.iconify",
     "antfu.unocss",
-    "antfu.vite",
     "antfu.goto-alias",
     "csstools.postcss",
     "dbaeumer.vscode-eslint",
