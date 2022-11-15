@@ -43,7 +43,10 @@ jobs:
       - checkout
       - attach_workspace:
           at: .
-      - run: ls dist/
+      - run: 
+          name: Cypress E2E tests
+          command: |
+            npm run test-ci:e2e
   
   test:
     docker: 
