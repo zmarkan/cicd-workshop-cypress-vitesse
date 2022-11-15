@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 
-cp scripts/configs/config_3.yml .circleci/config.yml
+cp scripts/configs/config_4.yml .circleci/config.yml
 rm -f .circleci/continue-config.yml
 
