@@ -2,10 +2,14 @@
 
 ## Prerequisites
 
-Knowledge of Git version control system
-GitHub account - where the code is hosted
-A code editor - Visual Studio Code is preferred but you can use anything
-
+- Knowledge of Git version control system  
+- Accounts for services we will be using  
+  - GitHub account - where the code is hosted
+  - CircleCI - cloud-based CI/CD
+  - Terraform - Infrastructure as Code (IaS) provider to deploy infrastructure
+  - Snyk - developer security platform
+  - Docker Hub - container registry to host custom images
+- A code editor - Visual Studio Code is preferred but you can use anything
 
 ## Chapter 0 - The Prologue and Prep
 
@@ -81,7 +85,7 @@ The scripts to run are:
 
 ### Overview of the project
 
-The project is a simple web application based on the Vitesse template. We've packages it in a Docker container, and deployed it on Kubernetes - hosted on DigitalOcean infrastructure.
+The project is a simple web application based on the [Vitesse template](https://github.com/antfu/vitesse). We've packaged it in a Docker container, and deployed it on Kubernetes - hosted on DigitalOcean infrastructure.
 We also have some tests, a security scan, a step to build the image, a provisioning step for DigitalOcean, and finally a deploy step.
 
 ### Workshop topics covered
