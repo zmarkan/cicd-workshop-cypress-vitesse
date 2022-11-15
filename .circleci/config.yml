@@ -41,6 +41,7 @@ jobs:
       - image: cypress/base:16.18.0
     steps:
       - checkout
+      - node/install-packages
       - attach_workspace:
           at: .
       - run: 
