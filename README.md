@@ -25,41 +25,52 @@ cp scripts/util/credentials.sample.toml credentials.toml
 
 If you don't do this, you'll have a bad time.
 
-#### DigitalOcean
+#### Make a Credentials `.toml` file
 
-- Create an account with DigitalOcean - https://cloud.digitalocean.com/ We will use DigitalOcean to deploy our application to. 
-- Go to API (left)
-- Generate New Token with read and write access
-- copy the token string to `credentials.toml` - `digitalocean_token`
-- The workshop host will provide a coupon code for you to use.
- 
+We will be filling out the credentials file before we start working with our CircleCI project.
+
+- Rename `credentials.sample.toml` to `credentials.toml`
+#### Digital Ocean
+
+You do not need your own Digital Ocean account, nor do you need to log into Digital Ocean.
+
+- We will give each of you a unique API Token during the workshop.
+- Copy the token string to `credentials.toml` - `digitalocean_token`
+
 #### Terraform Cloud
 
-- Create an account with Hashicorp Terraform - https://app.terraform.io/ We will use Terraform to provision our infrastructure on Digital Ocean.
-- Got to your user settings (top right), and select Tokens
-- Create an API token 
+We will use Terraform to provision our infrastructure on Digital Ocean.
+
+- Create an account with Hashicorp Terraform - https://app.terraform.io/
+- Go to your user settings by clicking on your avatar (top left), and select "User Settings"
+- From there, click on "Tokens"
+- Create an API token
 - Copy the token string to `credentials.toml` - `tf_cloud_key`
 
 #### Docker Hub
 
 - Create an account with Docker Hub - https://hub.docker.com/ We will use Docker Hub as a repository for our app images.
-- Go to your user settings (top right), and select Security
+- Go to "Account Settings" (top right), and select Security
 - Create New Access Token
 - copy your username to `credentials.toml` - `docker_username`
 - copy your token string to `credentials.toml` - `docker_token`
 
 #### Snyk
 
-- Create an account with Snyk - https://app.snyk.io/ - We will use Snyk to run an automated security scan of our application an its dependencies. 
-- Go to your Account settings (top right)
-- Click to show Auth Token 
-- Copy your token string to `credentials.toml` - `snyk_token`
+- Create an account with Snyk - https://app.snyk.io/ - We will use Snyk to run an automated security scan of our application an its dependencies.
+- Skip the integration step by clicking "Choose other integration" at the bottom of the options list.
+- Click on your avatar in the bottom of the sidebar to show a dropdown
+- Choose "Account Settings"
+- Click to show your Auth Token
+- Copy the auth token string to `credentials.toml` - `snyk_token`
 
 ### How this workshop works
 
-We will go from a chapter to chapter - depending on people's background we might skip a chapter (Chapter 1 is for complete beginners to CI/CD and subsequent chapters build on top of that, for example).
+We will go from chapter to chapter - depending on people's backgrounds we might go faster or slower.
 
 To jump between chapters we have prepared a set of handy scripts you can run in your terminal, which will set up your environment so you can follow along.
+
+The chapters will copy and overwrite certain files in your workspace, so after running each script, commit the changes and push it, which will run it on CircleCI.
 
 The scripts to run are:
 
@@ -68,12 +79,10 @@ The scripts to run are:
 `./scripts/do_3.sh` - End of second stage/Start of third stage
 `./scripts/do_4.sh` - Final state
 
-The chapters will copy and overwrite certain files in your workspace, so after running each script, commit the changes and push it, which will run it on CircleCI.
-
 ### Overview of the project
 
-The project is a simple web application based on the Vitesse project, that is packaged in a Docker container, and deployed on Kubernetes - hosted on DigitalOcean infrastructure. 
-We also have some tests, a security scan, building the image, provisioning the infrastructure and deploying the application.
+The project is a simple web application based on the Vitesse template. We've packages it in a Docker container, and deployed it on Kubernetes - hosted on DigitalOcean infrastructure.
+We also have some tests, a security scan, a step to build the image, a provisioning step for DigitalOcean, and finally a deploy step.
 
 ### Workshop topics covered
 
@@ -84,7 +93,7 @@ We also have some tests, a security scan, building the image, provisioning the i
 - Running tests and checks in parallel
 - Reporting test results
 - Caching dependencies
-- Using the orb to install and cache dependencies 
+- Using the orb to install and cache dependencies
 - Setting up secrets and contexts
 - Building and pushing a Docker image
 - Scanning vulnerabilities
@@ -106,7 +115,7 @@ We also have some tests, a security scan, building the image, provisioning the i
 ## Chapter 1 - Basics of CircleCI
 
 Most of our work will be in `./circleci/config.yml` - the CircleCI configuration file. This is where we will be describing our CI/CD pipelines.
-This workshop is written in chapters, so you can jump between them by running scripts in `srcipts/` dir, if you get lost and want to catch up with something.
+This workshop is written in chapters, so you can jump between them by running scripts in `scripts/` dir, if you get lost and want to catch up with something.
 To begin, prepare your environment for the initial state by running the start script: `./scripts/do_1_start.sh`
 
 Go to app.circleci.com, and if you haven't yet, log in with your GitHub account (or create a new one).
@@ -131,7 +140,7 @@ jobs:
       - run:
           command: |
             npm run lint
-            npm run test
+            npm run test-ci
             npm run build
 
 workflows:
@@ -158,7 +167,7 @@ jobs:
             npm run lint
       - run:
           command: |
-            npm run test
+            npm run test-ci
       - run:
           command: |
             npm run build
@@ -169,7 +178,7 @@ That way we have a nicer overview of the steps, but we can split them further, b
 ```yaml
 jobs:
   build:
-    docker: 
+    docker:
       - image: cimg/node:16.16.0
     steps:
       - checkout
@@ -179,9 +188,9 @@ jobs:
       - run:
           command: |
             npm run build
-  
+
   test:
-    docker: 
+    docker:
       - image: cimg/node:16.16.0
     steps:
       - checkout
@@ -190,10 +199,10 @@ jobs:
             npm install
       - run:
           command: |
-            npm run test
+            npm run test-ci
 
   lint:
-    docker: 
+    docker:
       - image: cimg/node:16.16.0
     steps:
       - checkout
@@ -203,11 +212,11 @@ jobs:
       - run:
           command: |
             npm run lint
-            
+
 workflows:
   build_test_deploy:
       jobs:
-        - build      
+        - build
         - test
         - lint
 ```
@@ -219,7 +228,7 @@ commands:
   install_and_cache_node_dependencies:
     steps:
       - restore_cache:
-            keys: 
+            keys:
               - v2-deps-{{ checksum "package-lock.json" }}
               - v2-deps-
       - run:
@@ -227,12 +236,12 @@ commands:
           command: npm install
       - save_cache:
           key: v1-deps-{{ checksum "package-lock.json" }}
-          paths: 
-              - node_modules   
+          paths:
+              - node_modules
 
 jobs:
   build:
-    docker: 
+    docker:
       - image: cimg/node:16.16.0
     steps:
       - checkout
@@ -240,19 +249,19 @@ jobs:
       - run:
           command: |
             npm run build
-  
+
   test:
-    docker: 
+    docker:
       - image: cimg/node:16.16.0
     steps:
       - checkout
       - install_and_cache_node_dependencies
       - run:
           command: |
-            npm run test
+            npm run test-ci
 
   lint:
-    docker: 
+    docker:
       - image: cimg/node:16.16.0
     steps:
       - checkout
@@ -273,7 +282,7 @@ orbs:
 
 jobs:
   build:
-    docker: 
+    docker:
       - image: cimg/node:16.16.0
     steps:
       - checkout
@@ -281,19 +290,19 @@ jobs:
       - run:
           command: |
             npm run build
-  
+
   test:
-    docker: 
+    docker:
       - image: cimg/node:16.16.0
     steps:
       - checkout
       - node/install-packages
       - run:
           command: |
-            npm run test
+            npm run test-ci
 
   lint:
-    docker: 
+    docker:
       - image: cimg/node:16.16.0
     steps:
       - checkout
@@ -318,7 +327,7 @@ Now we have three parallel jobs that cache dependencies and execute extremely qu
     ...
     "test-ci-reporting": "vitest run --reporter=junit --outputFile output/results.xml",
     ...
-  } 
+  }
   ...
 }
 ```
@@ -355,9 +364,9 @@ We have prepared a script for you to create a context and set it up with all the
 You should have all the required accounts for third party services already, and are just missing the CircleCI API token and the organization ID:
 
 - In app.circleci.com click on your user image (bottom left)
-- Go to Personal API Tokens 
+- Go to Personal API Tokens
 - Generate new API token and insert it `credentials.toml`
-- In app.circleci.com click on the Organization settings. 
+- In app.circleci.com click on the Organization settings.
 - Copy the Organization ID value and insert it in `credentials.toml`
 
 Make sure that you have all the required service variables set in `credentials.toml`, and then run the script (but make sure you have the toml dependency)
@@ -407,21 +416,21 @@ In the workflow, add the new job:
 workflows:
   build_test_deploy:
       jobs:
-        - build      
+        - build
         - test
         - lint
         - build_docker_image
 
 ```
 
-This doesn't run unfortunately - our `build_docker_image` doesn't have the required credentials. 
+This doesn't run unfortunately - our `build_docker_image` doesn't have the required credentials.
 Add the context we created earlier:
 
 ```yaml
 workflows:
   build_test_deploy:
       jobs:
-        - build      
+        - build
         - test
         - lint
         - build_docker_image:
@@ -435,7 +444,7 @@ This will now build and push your Docker image to Docker hub. Last thing to do i
 
 - First let's integrate a security scanning tool in our process. We will use Snyk, for which you should already have the account created and environment variable set.
 
-- Add Snyk orb: 
+- Add Snyk orb:
 
 ```yaml
 orbs:
@@ -468,7 +477,7 @@ dependency_vulnerability_scan:
 workflows:
   build_test_deploy:
       jobs:
-        - build      
+        - build
         - test
         - lint
         - build_docker_image:
@@ -551,7 +560,7 @@ commands:
             sudo mv ~/doctl /usr/local/bin
 ```
 
-- In app.terraform.io create a new organization, and give it a name. Create a new workspace called `cicd-workshop-do`. 
+- In app.terraform.io create a new organization, and give it a name. Create a new workspace called `cicd-workshop-do`.
 In the workspace GUI, go to `Settings`, and make sure to switch the `Execution Mode` to `Local`.
 
 - In the file `terraform/do_create_k8s/main.tf` locate the `backend "remote"` section and make sure to change the name to your organization:
@@ -604,7 +613,7 @@ Add the new job to the workflow. Add `requires` statements to only start deploym
 workflows:
   build_test_deploy:
       jobs:
-        - build      
+        - build
         - test
         - lint
         - build_docker_image:
@@ -624,11 +633,11 @@ workflows:
 
 ```
 
-### Deploying to your Kubernetes cluster 
+### Deploying to your Kubernetes cluster
 
 Now that you have provisioned your infrastructure - a Kubernetes cluster on Digitalocean. It's time to deploy the application to this cluster.
 
-- In app.terraform.io create a new workspace called `deploy-cicd-workshop-do`. 
+- In app.terraform.io create a new workspace called `deploy-cicd-workshop-do`.
 In the workspace GUI, go to `Settings`, and make sure to switch the `Execution Mode` to `Local`. You should now have two workspaces. One holds the infrastructure definitions, and one for deployments.
 
 - In the file `terraform/do_k8s_deploy_app/main.tf` locate the `backend "remote"` section and make sure to change the name to your organization:
@@ -695,7 +704,7 @@ workflows:
     jobs:
       ...
       - create_do_k8s_cluster:
-          context: 
+          context:
             - cicd-workshop
           requires:
             - build
@@ -714,7 +723,7 @@ workflows:
 - Now that our application has been deployed it should be running on our brand new Kubernetes cluster! Yay us, but it's not yet time to call it a day. We need to verify that the app is actually running, and for that we need to test in production. Let's introduce something called a Smoke test!
 
 
-- Add a new job - `smoketest_k8s_deployment. This uses a bash script to make HTTP requests to the deployed app and verifies the responses are what we expect. We also use a CircleCI Workspace to pass the endpoint of the deployed application to our test. 
+- Add a new job - `smoketest_k8s_deployment. This uses a bash script to make HTTP requests to the deployed app and verifies the responses are what we expect. We also use a CircleCI Workspace to pass the endpoint of the deployed application to our test.
 
 ```yaml
 smoketest_k8s_deployment:
@@ -740,7 +749,7 @@ workflows:
     jobs:
       ...
       - create_do_k8s_cluster:
-            context: 
+            context:
               - cicd-workshop
             requires:
               - build
@@ -834,21 +843,21 @@ workflows:
         - destroy_k8s_cluster:
             requires:
               - smoketest_k8s_deployment
-            context: 
+            context:
               - cicd-workshop
 ```
 
 🎉 Congratulations! You have reached to the end of chapter 2 with a fully fledged Kubernetes provisioning and deployment in a CI/CD pipeline!
 
 
-## Chapter 3 - Advanced deployments to multiple environments 
+## Chapter 3 - Advanced deployments to multiple environments
 
 In the final chapter we will introduce another environment - `prod`, and name our current environment `test`. It will let us test first, then only deploy to production when ready. We will also learn how to use parameters to re-use large parts of the config in our workflows.
 
 To get to the starting point, run:
 
 ```bash
-./scripts/chapter_3.sh 
+./scripts/chapter_3.sh
 ```
 
 ### Parameters in jobs
@@ -858,7 +867,7 @@ First, let's introduce the `env` parameter to specify environment name.
 ```yaml
   create_do_k8s_cluster:
     parameters:
-      env: 
+      env:
         type: string
         default: test
     docker:
@@ -967,7 +976,7 @@ Destruction job:
           command: |
             export CLUSTER_NAME=${CIRCLE_PROJECT_USERNAME}-${CIRCLE_PROJECT_REPONAME}-<< parameters.env >>
             export TAG=0.1.<< pipeline.number >>
-            export DOCKER_IMAGE="${DOCKER_LOGIN}/${CIRCLE_PROJECT_REPONAME}:$TAG"          
+            export DOCKER_IMAGE="${DOCKER_LOGIN}/${CIRCLE_PROJECT_REPONAME}:$TAG"
             doctl auth init -t $DIGITALOCEAN_TOKEN
             doctl kubernetes cluster kubeconfig save $CLUSTER_NAME
             terraform -chdir=./terraform/do_k8s_deploy_app/ apply -destroy \
@@ -997,7 +1006,7 @@ Now our jobs take parameters we need to also pass them. We do that in the workfl
 workflows:
   build_test_deploy:
       jobs:
-        - build      
+        - build
         - test
         - lint
         - build_docker_image:
@@ -1009,7 +1018,7 @@ workflows:
         - create_do_k8s_cluster:
             name: create_test_cluster
             env: test
-            context: 
+            context:
               - cicd-workshop
             requires:
               - build
@@ -1032,7 +1041,7 @@ workflows:
             env: test
             requires:
               - smoketest_k8s_deployment
-            context: 
+            context:
               - cicd-workshop
 ```
 
@@ -1049,7 +1058,7 @@ workflows:
             env: test
             requires:
               - smoketest_k8s_deployment
-            context: 
+            context:
               - cicd-workshop
         - approve_prod_deploy:
             type: approval
@@ -1063,7 +1072,7 @@ After approval we can move on to production deployment. Because of parameters th
 workflows:
   build_test_deploy:
       jobs:
-        - build      
+        - build
         - test
         - lint
         - build_docker_image:
@@ -1075,7 +1084,7 @@ workflows:
         - create_do_k8s_cluster:
             name: create_test_cluster
             env: test
-            context: 
+            context:
               - cicd-workshop
             requires:
               - build
@@ -1098,7 +1107,7 @@ workflows:
             env: test
             requires:
               - smoketest_k8s_deployment
-            context: 
+            context:
               - cicd-workshop
         - approve_prod_deploy:
             type: approval
@@ -1142,7 +1151,7 @@ Change the `approve_prod_deploy` job in the workflow to add a filter to it:
       - destroy_test_cluster
     filters:
       branches:
-        only: 
+        only:
           - main
 
 ```
@@ -1150,229 +1159,3 @@ Change the `approve_prod_deploy` job in the workflow to add a filter to it:
  Congratulations, you have completed the CircleCI part of the workshop! Now let's learn about Cypress!
 
  You can jump to this latest stage by running `./scripts/chapter_3.sh`
-
-
-
-
-
-
-
-
-# Vitesse project README ⬇️
-
-<p align='center'>
-  <img src='https://user-images.githubusercontent.com/11247099/154486817-f86b8f20-5463-4122-b6e9-930622e757f2.png' alt='Vitesse - Opinionated Vite Starter Template' width='600'/>
-</p>
-
-<p align='center'>
-Mocking up web app with <b>Vitesse</b><sup><em>(speed)</em></sup><br>
-</p>
-
-<br>
-
-<p align='center'>
-<a href="https://vitesse.netlify.app/">Live Demo</a>
-</p>
-
-<br>
-
-<p align='center'>
-<b>English</b> | <a href="https://github.com/antfu/vitesse/blob/main/README.zh-CN.md">简体中文</a>
-<!-- Contributors: Thanks for getting interested, however we DON'T accept new transitions to the README, thanks. -->
-</p>
-
-<br>
-
-
-## Features
-
-- ⚡️ [Vue 3](https://github.com/vuejs/core), [Vite 3](https://github.com/vitejs/vite), [pnpm](https://pnpm.io/), [ESBuild](https://github.com/evanw/esbuild) - born with fastness
-
-- 🗂 [File based routing](./src/pages)
-
-- 📦 [Components auto importing](./src/components)
-
-- 🍍 [State Management via Pinia](https://pinia.vuejs.org/)
-
-- 📑 [Layout system](./src/layouts)
-
-- 📲 [PWA](https://github.com/antfu/vite-plugin-pwa)
-
-- 🎨 [UnoCSS](https://github.com/antfu/unocss) - the instant on-demand atomic CSS engine
-
-- 😃 [Use icons from any icon sets with classes](https://github.com/antfu/unocss/tree/main/packages/preset-icons)
-
-- 🌍 [I18n ready](./locales)
-
-- 🔎 [Component Preview](https://github.com/johnsoncodehk/vite-plugin-vue-component-preview)
-
-- 🗒 [Markdown Support](https://github.com/antfu/vite-plugin-vue-markdown)
-
-- 🔥 Use the [new `<script setup>` syntax](https://github.com/vuejs/rfcs/pull/227)
-
-- 🤙🏻 [Reactivity Transform](https://vuejs.org/guide/extras/reactivity-transform.html) enabled
-
-- 📥 [APIs auto importing](https://github.com/antfu/unplugin-auto-import) - use Composition API and others directly
-
-- 🖨 Static-site generation (SSG) via [vite-ssg](https://github.com/antfu/vite-ssg)
-
-- 🦔 Critical CSS via [critters](https://github.com/GoogleChromeLabs/critters)
-
-- 🦾 TypeScript, of course
-
-- ⚙️ Unit Testing with [Vitest](https://github.com/vitest-dev/vitest), E2E Testing with [Cypress](https://cypress.io/) on [GitHub Actions](https://github.com/features/actions)
-
-- ☁️ Deploy on Netlify, zero-config
-
-<br>
-
-
-## Pre-packed
-
-### UI Frameworks
-
-- [UnoCSS](https://github.com/antfu/unocss) - The instant on-demand atomic CSS engine.
-
-### Icons
-
-- [Iconify](https://iconify.design) - use icons from any icon sets [🔍Icônes](https://icones.netlify.app/)
-- [Pure CSS Icons via UnoCSS](https://github.com/antfu/unocss/tree/main/packages/preset-icons)
-
-### Plugins
-
-- [Vue Router](https://github.com/vuejs/router)
-  - [`vite-plugin-pages`](https://github.com/hannoeru/vite-plugin-pages) - file system based routing
-  - [`vite-plugin-vue-layouts`](https://github.com/JohnCampionJr/vite-plugin-vue-layouts) - layouts for pages
-- [Pinia](https://pinia.vuejs.org) - Intuitive, type safe, light and flexible Store for Vue using the composition api
-- [`unplugin-vue-components`](https://github.com/antfu/unplugin-vue-components) - components auto import
-- [`unplugin-auto-import`](https://github.com/antfu/unplugin-auto-import) - Directly use Vue Composition API and others without importing
-- [`vite-plugin-pwa`](https://github.com/antfu/vite-plugin-pwa) - PWA
-- [`vite-plugin-vue-component-preview`](https://github.com/johnsoncodehk/vite-plugin-vue-component-preview) - Preview single component in VSCode
-- [`vite-plugin-vue-markdown`](https://github.com/antfu/vite-plugin-vue-markdown) - Markdown as components / components in Markdown
-  - [`markdown-it-shiki`](https://github.com/antfu/markdown-it-shiki) - [Shiki](https://github.com/shikijs/shiki) for syntax highlighting
-- [Vue I18n](https://github.com/intlify/vue-i18n-next) - Internationalization
-  - [`vite-plugin-vue-i18n`](https://github.com/intlify/bundle-tools/tree/main/packages/vite-plugin-vue-i18n) - Vite plugin for Vue I18n
-- [VueUse](https://github.com/antfu/vueuse) - collection of useful composition APIs
-- [`vite-ssg-sitemap`](https://github.com/jbaubree/vite-ssg-sitemap) - Sitemap generator
-- [`@vueuse/head`](https://github.com/vueuse/head) - manipulate document head reactively
-
-### Coding Style
-
-- Use Composition API with [`<script setup>` SFC syntax](https://github.com/vuejs/rfcs/pull/227)
-- [ESLint](https://eslint.org/) with [@antfu/eslint-config](https://github.com/antfu/eslint-config), single quotes, no semi.
-
-### Dev tools
-
-- [TypeScript](https://www.typescriptlang.org/)
-- [Vitest](https://github.com/vitest-dev/vitest) - Unit testing powered by Vite
-- [Cypress](https://cypress.io/) - E2E testing
-- [pnpm](https://pnpm.js.org/) - fast, disk space efficient package manager
-- [`vite-ssg`](https://github.com/antfu/vite-ssg) - Static-site generation
-  - [critters](https://github.com/GoogleChromeLabs/critters) - Critical CSS
-- [Netlify](https://www.netlify.com/) - zero-config deployment
-- [VS Code Extensions](./.vscode/extensions.json)
-  - [Vite](https://marketplace.visualstudio.com/items?itemName=antfu.vite) - Fire up Vite server automatically
-  - [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) - Vue 3 `<script setup>` IDE support
-  - [Iconify IntelliSense](https://marketplace.visualstudio.com/items?itemName=antfu.iconify) - Icon inline display and autocomplete
-  - [i18n Ally](https://marketplace.visualstudio.com/items?itemName=lokalise.i18n-ally) - All in one i18n support
-  - [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint)
-
-## Variations
-
-As this template is strongly opinionated, the following provides a curated list for community-maintained variations with different preferences and feature sets. Check them out as well. PR to add yours is also welcome!
-
-###### Official
-
-- [vitesse-lite](https://github.com/antfu/vitesse-lite) - Lightweight version of Vitesse
-- [vitesse-nuxt3](https://github.com/antfu/vitesse-nuxt3) - Vitesse for Nuxt 3
-- [vitesse-nuxt-bridge](https://github.com/antfu/vitesse-nuxt-bridge) - Vitesse for Nuxt 2 with Bridge
-- [vitesse-webext](https://github.com/antfu/vitesse-webext) - WebExtension Vite starter template
-
-###### Community
-
-- [vitesse-ssr-template](https://github.com/frandiox/vitesse-ssr-template) by [@frandiox](https://github.com/frandiox) - Vitesse with SSR
-- [vitespa](https://github.com/ctholho/vitespa) by [@ctholho](https://github.com/ctholho) - Like Vitesse but without SSG/SSR
-- [vitailse](https://github.com/zynth17/vitailse) by [@zynth17](https://github.com/zynth17) - Like Vitesse but with TailwindCSS
-- [vitesse-modernized-chrome-ext](https://github.com/xiaoluoboding/vitesse-modernized-chrome-ext) by [@xiaoluoboding](https://github.com/xiaoluoboding) - ⚡️ Modernized Chrome Extension Manifest V3 Vite Starter Template
-- [vitesse-stackter-clean-architect](https://github.com/shamscorner/vitesse-stackter-clean-architect) by [@shamscorner](https://github.com/shamscorner) - A modular clean architecture pattern in vitesse template
-- [vitesse-enterprise](https://github.com/FranciscoKloganB/vitesse-enterprise) by [@FranciscoKloganB](https://github.com/FranciscoKloganB) - Consistent coding styles regardless of team-size.
-- [vitecamp](https://github.com/nekobc1998923/vitecamp) by [@nekobc1998923](https://github.com/nekobc1998923) - Like Vitesse but without SSG/SSR/File based routing, includes Element Plus
-- [vitesse-lite-react](https://github.com/lxy-yz/vitesse-lite-react) by [@lxy-yz](https://github.com/lxy-yz) - vitesse-lite React fork
-- [vide](https://github.com/Nico-Mayer/vide) by [@nico-mayer](https://github.com/Nico-Mayer) - Vite superlight Beginner Starter Template
-- [vitesse-h5](https://github.com/YunYouJun/vitesse-h5) by [@YunYouJun](https://github.com/YunYouJun) - Vitesse for Mobile
-- [bat](https://github.com/olgam4/bat) by [@olgam4](https://github.com/olgam4) - Vitesse for SolidJS
-
-## Try it now!
-
-> Vitesse requires Node >=14.18
-
-### GitHub Template
-
-[Create a repo from this template on GitHub](https://github.com/antfu/vitesse/generate).
-
-### Clone to local
-
-If you prefer to do it manually with the cleaner git history
-
-```bash
-npx degit antfu/vitesse my-vitesse-app
-cd my-vitesse-app
-pnpm i # If you don't have pnpm installed, run: npm install -g pnpm
-```
-
-## Checklist
-
-When you use this template, try follow the checklist to update your info properly
-
-- [ ] Change the author name in `LICENSE`
-- [ ] Change the title in `App.vue`
-- [ ] Change the hostname in `vite.config.ts`
-- [ ] Change the favicon in `public`
-- [ ] Remove the `.github` folder which contains the funding info
-- [ ] Clean up the READMEs and remove routes
-
-And, enjoy :)
-
-## Usage
-
-### Development
-
-Just run and visit http://localhost:3333
-
-```bash
-pnpm dev
-```
-
-### Build
-
-To build the App, run
-
-```bash
-pnpm build
-```
-
-And you will see the generated file in `dist` that ready to be served.
-
-### Deploy on Netlify
-
-Go to [Netlify](https://app.netlify.com/start) and select your clone, `OK` along the way, and your App will be live in a minute.
-
-### Docker Production Build
-
-First, build the vitesse image by opening the terminal in the project's root directory.
-
-```bash
-docker buildx build . -t vitesse:latest
-```
-
-Run the image and specify port mapping with the `-p` flag.
-
-```bash
-docker run --rm -it -p 8080:80 vitesse:latest
-```
-
-## Why
-
-I have created several Vite apps recently. Setting the configs up is kinda the bottleneck for me to make the ideas simply come true within a very short time.
-
-So I made this starter template for myself to create apps more easily, along with some good practices that I have learned from making those apps. It's strongly opinionated, but feel free to tweak it or even maintain your own forks. [(see community maintained variation forks)](#variations)
