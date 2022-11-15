@@ -587,7 +587,7 @@ create_do_k8s_cluster:
       - run:
           name: Create K8s Cluster on DigitalOcean
           command: |
-            export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}
+            export CLUSTER_NAME=${CIRCLE_PROJECT_USERNAME}-${CIRCLE_PROJECT_REPONAME}
             export DO_K8S_SLUG_VER="$(doctl kubernetes options versions \
               -o json -t $DIGITALOCEAN_TOKEN | jq -r '.[0] | .slug')"
 
@@ -664,7 +664,7 @@ deploy_to_k8s:
     - run:
         name: Deploy Application to K8s on DigitalOcean
         command: |
-          export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}
+          export CLUSTER_NAME=${CIRCLE_PROJECT_USERNAME}-${CIRCLE_PROJECT_REPONAME}
           export TAG=0.1.<< pipeline.number >>
           export DOCKER_IMAGE="${DOCKER_LOGIN}/${CIRCLE_PROJECT_REPONAME}:$TAG"
           doctl auth init -t $DIGITALOCEAN_TOKEN
@@ -785,7 +785,7 @@ destroy_k8s_cluster:
     - run:
         name: Destroy App Deployment
         command: |
-          export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}
+          export CLUSTER_NAME=${CIRCLE_PROJECT_USERNAME}-${CIRCLE_PROJECT_REPONAME}
           export TAG=0.1.<< pipeline.number >>
           export DOCKER_IMAGE="${DOCKER_LOGIN}/${CIRCLE_PROJECT_REPONAME}:$TAG"
           doctl auth init -t $DIGITALOCEAN_TOKEN
@@ -802,7 +802,7 @@ destroy_k8s_cluster:
     - run:
         name: Destroy K8s Cluster
         command: |
-          export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}
+          export CLUSTER_NAME=${CIRCLE_PROJECT_USERNAME}-${CIRCLE_PROJECT_REPONAME}
           export DO_K8S_SLUG_VER="$(doctl kubernetes options versions \
             -o json -t $DIGITALOCEAN_TOKEN | jq -r '.[0] | .slug')"
 
@@ -879,7 +879,7 @@ First, let's introduce the `env` parameter to specify environment name.
       - run:
           name: Create K8s Cluster on DigitalOcean
           command: |
-            export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}-<< parameters.env >>
+            export CLUSTER_NAME=${CIRCLE_PROJECT_USERNAME}-${CIRCLE_PROJECT_REPONAME}-<< parameters.env >>
             export DO_K8S_SLUG_VER="$(doctl kubernetes options versions \
               -o json -t $DIGITALOCEAN_TOKEN | jq -r '.[0] | .slug')"
             terraform -chdir=./terraform/do_create_k8s apply \
@@ -919,7 +919,7 @@ Deployment:
       - run:
           name: Deploy Application to K8s on DigitalOcean
           command: |
-            export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}-<< parameters.env >>
+            export CLUSTER_NAME=${CIRCLE_PROJECT_USERNAME}-${CIRCLE_PROJECT_REPONAME}-<< parameters.env >>
             export TAG=0.1.<< pipeline.number >>
             export DOCKER_IMAGE="${DOCKER_LOGIN}/${CIRCLE_PROJECT_REPONAME}:$TAG"
             doctl auth init -t $DIGITALOCEAN_TOKEN
@@ -965,7 +965,7 @@ Destruction job:
       - run:
           name: Destroy App Deployment
           command: |
-            export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}-<< parameters.env >>
+            export CLUSTER_NAME=${CIRCLE_PROJECT_USERNAME}-${CIRCLE_PROJECT_REPONAME}-<< parameters.env >>
             export TAG=0.1.<< pipeline.number >>
             export DOCKER_IMAGE="${DOCKER_LOGIN}/${CIRCLE_PROJECT_REPONAME}:$TAG"          
             doctl auth init -t $DIGITALOCEAN_TOKEN
@@ -980,7 +980,7 @@ Destruction job:
       - run:
           name: Destroy K8s Cluster
           command: |
-            export CLUSTER_NAME=${CIRCLE_PROJECT_REPONAME}-<< parameters.env >>
+            export CLUSTER_NAME=${CIRCLE_PROJECT_USERNAME}-${CIRCLE_PROJECT_REPONAME}-<< parameters.env >>
             export DO_K8S_SLUG_VER="$(doctl kubernetes options versions \
               -o json -t $DIGITALOCEAN_TOKEN | jq -r '.[0] | .slug')"
             terraform -chdir=./terraform/do_create_k8s apply -destroy \
