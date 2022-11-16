@@ -9,6 +9,7 @@ node_modules
 *.log
 test-results.xml
 credentials.toml
+.vscode/
 cypress/videos
 cypress/screenshots
 ws_tokens.yml
