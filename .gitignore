@@ -9,3 +9,6 @@ node_modules
 *.log
 test-results.xml
 credentials.toml
+cypress/videos
+cypress/screenshots
+ws_tokens.yml
