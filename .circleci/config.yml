@@ -3,6 +3,7 @@ version: 2.1
 orbs:
   node: circleci/node@5.0.3
   docker: circleci/docker@2.1.4
+  snyk: snyk/snyk@1.4.0
 
 executors:
   node_docker:
@@ -61,6 +62,16 @@ jobs:
       - docker/push:
           image: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME
           tag: 0.1.<< pipeline.number >>
+  
+  dependency_vulnerability_scan:
+    docker:
+      - image: cimg/node:16.16.0
+    steps:
+      - checkout
+      - node/install-packages
+      - snyk/scan:
+          fail-on-issues: true
+          monitor-on-build: false
             
 workflows:
   build_test_deploy:
@@ -69,6 +80,9 @@ workflows:
         - lint
         - test  
         - build_docker_image:
+            context:
+              - cicd-workshop 
+        - dependency_vulnerability_scan:
             context:
               - cicd-workshop 
 
