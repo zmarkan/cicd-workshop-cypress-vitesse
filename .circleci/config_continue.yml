@@ -236,7 +236,7 @@ jobs:
 workflows:
   build_test_deploy:
     when:
-      not: << parameters.skip_run >> 
+      not: << parameters.skip-run >> 
     jobs:
       - build      
       - test
