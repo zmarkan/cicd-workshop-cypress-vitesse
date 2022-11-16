@@ -15,10 +15,14 @@ commands:
           paths:
               - node_modules
 
-jobs:
-  build:
+executors:
+  node_docker:
     docker: 
       - image: cimg/node:16.16.0
+
+jobs:
+  build:
+    executor: node_docker
     steps:
       - checkout
       - install_and_cache_node_dependencies
@@ -27,8 +31,7 @@ jobs:
             npm run build 
 
   test:
-    docker: 
-      - image: cimg/node:16.16.0
+    executor: node_docker
     steps:
       - checkout
       - install_and_cache_node_dependencies
@@ -37,8 +40,7 @@ jobs:
             npm run test-ci
 
   lint:
-    docker: 
-      - image: cimg/node:16.16.0
+    executor: node_docker
     steps:
       - checkout
       - install_and_cache_node_dependencies
