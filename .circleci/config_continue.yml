@@ -1,0 +1,315 @@
+version: 2.1
+
+parameters:
+  skip-run:
+    type: boolean
+    default: false
+
+orbs:
+  node: circleci/node@5.0.3
+  docker: circleci/docker@2.1.4
+  snyk: snyk/snyk@1.4.0
+  terraform: circleci/terraform@3.2.0
+
+commands:
+  install_doctl:
+    parameters:
+      version:
+        default: 1.79.0
+        type: string
+    steps:
+      - run:
+          name: Install doctl client
+          command: |
+            cd ~
+            wget https://github.com/digitalocean/doctl/releases/download/v<<parameters.version>>/doctl-<<parameters.version>>-linux-amd64.tar.gz
+            tar xf ~/doctl-<<parameters.version>>-linux-amd64.tar.gz
+            sudo mv ~/doctl /usr/local/bin
+
+jobs:
+  build:
+    docker: 
+      - image: cimg/node:16.16.0
+    steps:
+      - checkout
+      - node/install-packages
+      - run:
+          command: |
+            npm run build
+  
+  test:
+    docker: 
+      - image: cimg/node:16.16.0
+    steps:
+      - checkout
+      - node/install-packages
+      - run:
+          name: Run tests
+          command: npm run test-ci-reporting
+      - run:
+          name: Copy tests results for storing
+          command: |
+            mkdir test-results/
+            cp test-results.xml test-results/
+          when: always
+      - store_test_results:
+          path: test-results
+      - store_artifacts:
+          path: test-results
+
+  lint:
+    docker: 
+      - image: cimg/node:16.16.0
+    steps:
+      - checkout
+      - node/install-packages
+      - run:
+          command: |
+            npm run lint
+  
+  build_docker_image:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - setup_remote_docker
+      - docker/check
+      - docker/build:
+          image: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME
+          tag: 0.1.<< pipeline.number >>
+      - snyk/scan:
+          fail-on-issues: false
+          monitor-on-build: false
+          target-file: Dockerfile
+          docker-image-name: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME:0.1.<< pipeline.number >>
+          project: ${CIRCLE_PROJECT_REPONAME}/${CIRCLE_BRANCH}-app
+      - docker/push:
+          image: $DOCKER_LOGIN/$CIRCLE_PROJECT_REPONAME
+          tag: 0.1.<< pipeline.number >>
+  
+  dependency_vulnerability_scan:
+    docker:
+      - image: cimg/node:16.16.0
+    steps:
+      - checkout
+      - node/install-packages
+      - snyk/scan:
+          fail-on-issues: true
+          monitor-on-build: false
+
+  create_do_k8s_cluster:
+    parameters:
+      env: 
+        type: string
+        default: test
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - install_doctl:
+          version: "1.78.0"
+      - run:
+          name: Create .terraformrc file locally
+          command: echo "credentials \"app.terraform.io\" {token = \"$TF_CLOUD_KEY\"}" > $HOME/.terraformrc
+      - terraform/install:
+          terraform_version: "1.0.6"
+          arch: "amd64"
+          os: "linux"
+      - terraform/init:
+          path: ./terraform/do_create_k8s
+      - run:
+          name: Create K8s Cluster on DigitalOcean
+          command: |
+            export CLUSTER_NAME=${CIRCLE_PROJECT_USERNAME}-${CIRCLE_PROJECT_REPONAME}-<< parameters.env >>
+            export DO_K8S_SLUG_VER="$(doctl kubernetes options versions \
+              -o json -t $DIGITALOCEAN_TOKEN | jq -r '.[0] | .slug')"
+            terraform -chdir=./terraform/do_create_k8s apply \
+              -var do_token=$DIGITALOCEAN_TOKEN \
+              -var cluster_name=$CLUSTER_NAME \
+              -var do_k8s_slug_ver=$DO_K8S_SLUG_VER \
+              -auto-approve
+  
+
+  deploy_to_k8s:
+    parameters:
+      env:
+        type: string
+        default: test
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - install_doctl:
+          version: "1.78.0"
+      - run:
+          name: Create .terraformrc file locally
+          command: echo "credentials \"app.terraform.io\" {token = \"$TF_CLOUD_KEY\"}" > $HOME/.terraformrc
+      - terraform/install:
+          terraform_version: "1.0.6"
+          arch: "amd64"
+          os: "linux"
+      - terraform/init:
+          path: ./terraform/do_k8s_deploy_app
+      - run:
+          name: Deploy Application to K8s on DigitalOcean
+          command: |
+            export CLUSTER_NAME=${CIRCLE_PROJECT_USERNAME}-${CIRCLE_PROJECT_REPONAME}-<< parameters.env >>
+            export TAG=0.1.<< pipeline.number >>
+            export DOCKER_IMAGE="${DOCKER_LOGIN}/${CIRCLE_PROJECT_REPONAME}:$TAG"
+            doctl auth init -t $DIGITALOCEAN_TOKEN
+            doctl kubernetes cluster kubeconfig save $CLUSTER_NAME
+            terraform -chdir=./terraform/do_k8s_deploy_app apply \
+              -var do_token=$DIGITALOCEAN_TOKEN \
+              -var cluster_name=$CLUSTER_NAME \
+              -var docker_image=$DOCKER_IMAGE \
+              -auto-approve
+            # Save the Load Balancer Public IP Address
+            export ENDPOINT="$(terraform -chdir=./terraform/do_k8s_deploy_app output lb_public_ip)"
+            mkdir -p /tmp/do_k8s/
+            echo 'export ENDPOINT='${ENDPOINT} > /tmp/do_k8s/dok8s-endpoint
+      - persist_to_workspace:
+          root: /tmp/do_k8s/
+          paths:
+            - "*"
+  
+  smoketest_k8s_deployment:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - attach_workspace:
+          at: /tmp/do_k8s/
+      # - run:
+      #     name: Smoke Test K8s App Deployment
+      #     command: |
+      #       source /tmp/do_k8s/dok8s-endpoint
+      #       ./test/smoke_test $ENDPOINT
+      # Doesn't work at the mo - just pass -> or shall we check with Jess what she wants to do here?
+
+  destroy_k8s_cluster:
+    parameters:
+      env:
+        type: string
+        default: test
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - install_doctl:
+          version: "1.78.0"
+      - run:
+          name: Create .terraformrc file locally
+          command: echo "credentials \"app.terraform.io\" {token = \"$TF_CLOUD_KEY\"}" > $HOME/.terraformrc && cat $HOME/.terraformrc
+      - terraform/install:
+          terraform_version: "1.0.6"
+          arch: "amd64"
+          os: "linux"
+      - terraform/init:
+          path: ./terraform/do_k8s_deploy_app/
+      - run:
+          name: Destroy App Deployment
+          command: |
+            export CLUSTER_NAME=${CIRCLE_PROJECT_USERNAME}-${CIRCLE_PROJECT_REPONAME}-<< parameters.env >>
+            export TAG=0.1.<< pipeline.number >>
+            export DOCKER_IMAGE="${DOCKER_LOGIN}/${CIRCLE_PROJECT_REPONAME}:$TAG"          
+            doctl auth init -t $DIGITALOCEAN_TOKEN
+            doctl kubernetes cluster kubeconfig save $CLUSTER_NAME
+            terraform -chdir=./terraform/do_k8s_deploy_app/ apply -destroy \
+              -var do_token=$DIGITALOCEAN_TOKEN \
+              -var cluster_name=$CLUSTER_NAME \
+              -var docker_image=$DOCKER_IMAGE \
+              -auto-approve
+      - terraform/init:
+          path: ./terraform/do_create_k8s
+      - run:
+          name: Destroy K8s Cluster
+          command: |
+            export CLUSTER_NAME=${CIRCLE_PROJECT_USERNAME}-${CIRCLE_PROJECT_REPONAME}-<< parameters.env >>
+            export DO_K8S_SLUG_VER="$(doctl kubernetes options versions \
+              -o json -t $DIGITALOCEAN_TOKEN | jq -r '.[0] | .slug')"
+            terraform -chdir=./terraform/do_create_k8s apply -destroy \
+              -var do_token=$DIGITALOCEAN_TOKEN \
+              -var cluster_name=$CLUSTER_NAME \
+              -var do_k8s_slug_ver=$DO_K8S_SLUG_VER \
+              -auto-approve
+            
+workflows:
+  build_test_deploy:
+    when:
+      not: << parameters.skip_run >> 
+    jobs:
+      - build      
+      - test
+      - lint
+      - build_docker_image:
+          context:
+            - cicd-workshop
+      - dependency_vulnerability_scan:
+          context:
+            - cicd-workshop
+      - create_do_k8s_cluster:
+          name: create_test_cluster
+          env: test
+          context: 
+            - cicd-workshop
+          requires:
+            - build
+            - test
+            - lint
+            - build_docker_image
+            - dependency_vulnerability_scan
+      - deploy_to_k8s:
+          name: deploy_test
+          env: test
+          requires:
+            - create_test_cluster
+          context:
+            - cicd-workshop
+      - smoketest_k8s_deployment:
+          requires:
+            - deploy_test
+      - destroy_k8s_cluster:
+          name: destroy_test_cluster
+          env: test
+          requires:
+            - smoketest_k8s_deployment
+          context: 
+            - cicd-workshop
+      - approve_prod_deploy:
+          type: approval
+          requires:
+            - destroy_test_cluster
+          filters:
+            branches:
+              only: 
+                - main
+      - create_do_k8s_cluster:
+          name: create_prod_cluster
+          env: prod
+          requires:
+            - approve_prod_deploy
+          context:
+            - cicd-workshop
+      - deploy_to_k8s:
+          name: deploy_prod
+          env: prod
+          context:
+            - cicd-workshop
+          requires:
+            - create_prod_cluster
+      - approve_prod_destroy:
+          type: approval
+          requires:
+            - deploy_prod
+      - destroy_k8s_cluster:
+          name: destroy_prod_cluster
+          env: prod
+          context:
+            - cicd-workshop
+          requires:
+            - approve_prod_destroy
+            
+
+
+
+# VS Code Extension Version: 1.0.2
