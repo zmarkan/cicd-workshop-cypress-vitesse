@@ -11,13 +11,37 @@ jobs:
             npm install
       - run:
           command: |
-            npm run lint
-            npm run test-ci
             npm run build 
+
+  test:
+    docker: 
+      - image: cimg/node:16.16.0
+    steps:
+      - checkout
+      - run:
+          command: |
+            npm install
+      - run:
+          command: |
+            npm run test-ci
+
+  lint:
+    docker: 
+      - image: cimg/node:16.16.0
+    steps:
+      - checkout
+      - run:
+          command: |
+            npm install
+      - run:
+          command: |
+            npm run lint
             
 workflows:
   build_test_deploy:
       jobs:
-        - build      
+        - build  
+        - lint
+        - test   
 
 # VS Code Extension Version: 1.0.2
