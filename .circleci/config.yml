@@ -13,7 +13,7 @@ jobs:
     executor: node_docker
     steps:
       - checkout
-      - node/install_packages
+      - node/install-packages
       - run:
           command: |
             npm run build 
@@ -22,7 +22,7 @@ jobs:
     executor: node_docker
     steps:
       - checkout
-      - node/install_packages
+      - node/install-packages
       - run:
           command: |
             npm run test-ci
@@ -31,7 +31,7 @@ jobs:
     executor: node_docker
     steps:
       - checkout
-      - node/install_packages
+      - node/install-packages
       - run:
           command: |
             npm run lint
