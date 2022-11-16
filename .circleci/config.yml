@@ -1,14 +1,27 @@
 version: 2.1
 
+commands:
+  install_and_cache_node_dependencies:
+    steps:
+      - restore_cache:
+            keys:
+              - v2-deps-{{ checksum "package-lock.json" }}
+              - v2-deps-
+      - run:
+          name: Install deps
+          command: npm install
+      - save_cache:
+          key: v2-deps-{{ checksum "package-lock.json" }}
+          paths:
+              - node_modules
+
 jobs:
   build:
     docker: 
       - image: cimg/node:16.16.0
     steps:
       - checkout
-      - run:
-          command: |
-            npm install
+      - install_and_cache_node_dependencies
       - run:
           command: |
             npm run build 
@@ -18,9 +31,7 @@ jobs:
       - image: cimg/node:16.16.0
     steps:
       - checkout
-      - run:
-          command: |
-            npm install
+      - install_and_cache_node_dependencies
       - run:
           command: |
             npm run test-ci
@@ -30,9 +41,7 @@ jobs:
       - image: cimg/node:16.16.0
     steps:
       - checkout
-      - run:
-          command: |
-            npm install
+      - install_and_cache_node_dependencies
       - run:
           command: |
             npm run lint
