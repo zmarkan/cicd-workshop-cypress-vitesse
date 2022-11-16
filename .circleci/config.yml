@@ -4,6 +4,23 @@ orbs:
   node: circleci/node@5.0.3
   docker: circleci/docker@2.1.4
   snyk: snyk/snyk@1.4.0
+  terraform: circleci/terraform@3.2.0
+
+commands:
+  install_doctl:
+    parameters:
+      version:
+        default: 1.79.0
+        type: string
+    steps:
+      - run:
+          name: Install doctl client
+          command: |
+            cd ~
+            wget https://github.com/digitalocean/doctl/releases/download/v<<parameters.version>>/doctl-<<parameters.version>>-linux-amd64.tar.gz
+            tar xf ~/doctl-<<parameters.version>>-linux-amd64.tar.gz
+            sudo mv ~/doctl /usr/local/bin
+
 
 executors:
   node_docker:
@@ -78,6 +95,35 @@ jobs:
       - snyk/scan:
           fail-on-issues: true
           monitor-on-build: false
+
+  create_do_k8s_cluster:
+    docker:
+      - image: cimg/node:16.16.0
+    steps:
+      - checkout
+      - install_doctl:
+          version: 1.78.0
+      - run:
+          name: Create .terraformrc file locally
+          command: echo "credentials \"app.terraform.io\" {token = \"$TF_CLOUD_KEY\"}" > $HOME/.terraformrc
+      - terraform/install:
+          terraform_version: 1.0.6
+          arch: amd64
+          os: linux
+      - terraform/init:
+          path: ./terraform/do_create_k8s
+      - run:
+          name: Create K8s Cluster on DigitalOcean
+          command: |
+            export CLUSTER_NAME=${CIRCLE_PROJECT_USERNAME}-${CIRCLE_PROJECT_REPONAME}
+            export DO_K8S_SLUG_VER="$(doctl kubernetes options versions \
+              -o json -t $DIGITALOCEAN_TOKEN | jq -r '.[0] | .slug')"
+
+            terraform -chdir=./terraform/do_create_k8s apply \
+              -var do_token=$DIGITALOCEAN_TOKEN \
+              -var cluster_name=$CLUSTER_NAME \
+              -var do_k8s_slug_ver=$DO_K8S_SLUG_VER \
+              -auto-approve
             
 workflows:
   build_test_deploy:
@@ -91,5 +137,8 @@ workflows:
         - dependency_vulnerability_scan:
             context:
               - cicd-workshop 
+        - create_do_k8s_cluster:
+            context:
+              - cicd-workshop
 
 # VS Code Extension Version: 1.0.2

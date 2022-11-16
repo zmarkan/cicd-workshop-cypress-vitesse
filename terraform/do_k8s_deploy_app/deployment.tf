@@ -8,7 +8,7 @@ resource "kubernetes_service" "app" {
     }
     port {
       port        = 80
-      target_port = 5000
+      target_port = 80
     }
 
     type = "LoadBalancer"
@@ -44,8 +44,8 @@ resource "kubernetes_deployment" "app" {
           image = var.docker_image
           name  = var.cluster_name
           port {
-            name           = "port-5000"
-            container_port = 5000
+            name           = "port-80"
+            container_port = 80
           }
         }
       }
